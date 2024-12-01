@@ -3,6 +3,7 @@
   <component name="ProjectTasksOptions">
     <enabled-global>
       <option value="gofumpt" />
+      <option value="golangci-lint" />
     </enabled-global>
   </component>
 </project>
