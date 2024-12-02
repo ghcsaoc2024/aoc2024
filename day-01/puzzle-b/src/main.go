@@ -54,9 +54,9 @@ func main() {
 	}
 
 	total := 0
-	for i := range slice1 {
-		nOccurrences := valCounts[slice1[i]]
-		total += slice1[i] * nOccurrences
+	for _, v := range slice1 {
+		nOccurrences := valCounts[v]
+		total += v * nOccurrences
 	}
 
 	log.Println(total)
