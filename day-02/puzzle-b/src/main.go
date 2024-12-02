@@ -43,19 +43,16 @@ func main() {
 
 		nValues := len(values)
 
-		legal, failIdx := isLegal(values)
+		legal, failIdx := isLegal(values, -1)
 		if legal {
 			nSafe++
 			continue
 		}
 
-		repairedValues := make([]int, nValues-1)
 		startCheck := max(0, failIdx-1)
 		endCheck := min(nValues-1, failIdx+1)
 		for idxToSkip := startCheck; idxToSkip <= endCheck; idxToSkip++ {
-			copy(repairedValues[:idxToSkip], values[:idxToSkip])
-			copy(repairedValues[idxToSkip:], values[idxToSkip+1:])
-			legal, _ := isLegal(repairedValues)
+			legal, _ := isLegal(values, idxToSkip)
 			if legal {
 				nSafe++
 				break
@@ -66,11 +63,24 @@ func main() {
 	log.Println(nSafe)
 }
 
-func isLegal(values []int) (bool, int) {
+func isLegal(values []int, skipIdx int) (bool, int) {
 	ascending := false
 	descending := false
-	for idx := range len(values) - 1 {
-		step := values[idx+1] - values[idx]
+	for idx := 0; idx < len(values)-1; idx++ {
+		if idx == skipIdx {
+			idx++
+		}
+
+		nextIdx := idx + 1
+		if nextIdx == skipIdx {
+			nextIdx++
+		}
+
+		if nextIdx >= len(values) {
+			break
+		}
+
+		step := values[nextIdx] - values[idx]
 		if step > 0 {
 			ascending = true
 		} else if step < 0 {
