@@ -41,10 +41,15 @@ func main() {
 			return num
 		})
 
+		nValues := len(values)
+		if nValues < 1 {
+			continue
+		}
+
 		ascending := false
 		descending := false
 		legal := true
-		for i := range len(values) - 1 {
+		for i := range nValues - 1 {
 			step := values[i+1] - values[i]
 			if step > 0 {
 				ascending = true

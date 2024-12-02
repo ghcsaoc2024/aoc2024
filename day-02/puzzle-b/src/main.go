@@ -42,6 +42,9 @@ func main() {
 		})
 
 		nValues := len(values)
+		if nValues < 1 {
+			continue
+		}
 
 		legal, failIdx := isLegal(values, -1)
 		if legal {
