@@ -47,15 +47,10 @@ func main() {
 			continue
 		}
 
+		repairedValues := make([]int, len(values)-1)
 		for i := range values {
-			repairedValues := make([]int, 0, len(values)-1)
-			for j := range values {
-				if j == i {
-					continue
-				}
-				repairedValues = append(repairedValues, values[j])
-			}
-
+			copy(repairedValues[:i], values[:i])
+			copy(repairedValues[i:], values[i+1:])
 			if isLegal(repairedValues) {
 				nSafe++
 				break
