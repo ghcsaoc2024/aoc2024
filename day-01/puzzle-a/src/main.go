@@ -35,6 +35,8 @@ func main() {
 			if err1 == nil && err2 == nil {
 				slice1 = append(slice1, num1)
 				slice2 = append(slice2, num2)
+			} else {
+				log.Printf("Could not parse line `%v`\n", line)
 			}
 		}
 	}
