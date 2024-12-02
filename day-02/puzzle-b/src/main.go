@@ -52,9 +52,9 @@ func main() {
 		repairedValues := make([]int, nValues-1)
 		startCheck := max(0, failIdx-1)
 		endCheck := min(nValues-1, failIdx+1)
-		for i := startCheck; i <= endCheck; i++ {
-			copy(repairedValues[:i], values[:i])
-			copy(repairedValues[i:], values[i+1:])
+		for idxToSkip := startCheck; idxToSkip <= endCheck; idxToSkip++ {
+			copy(repairedValues[:idxToSkip], values[:idxToSkip])
+			copy(repairedValues[idxToSkip:], values[idxToSkip+1:])
 			legal, _ := isLegal(repairedValues)
 			if legal {
 				nSafe++
