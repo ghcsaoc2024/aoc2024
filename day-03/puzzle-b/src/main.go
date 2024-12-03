@@ -16,7 +16,6 @@ func main() {
 		log.Panicf("Failed to read file: %v", err)
 	}
 
-	// Create a regular expression that matches anything starting with mul
 	pattern := `(mul\(([1-9][0-9]*),([1-9][0-9]*)\))|(do\(\))|(don't\(\))`
 	re, err := regexp.Compile(pattern)
 	if err != nil {
