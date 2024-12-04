@@ -37,11 +37,12 @@ func main() {
 }
 
 func doSearch(array [][]rune) int {
+	nDiags := len(diags)
 	nFound := 0
 	for i := range array {
 		for j := range array[i] {
 			for dirIdx1, dir1 := range diags {
-				for dirIdx2 := dirIdx1 + 1; dirIdx2 < len(diags); dirIdx2++ {
+				for dirIdx2 := dirIdx1 + 1; dirIdx2 < nDiags; dirIdx2++ {
 					dir2 := diags[dirIdx2]
 					if searchInTwoDirs(array, i, j, dir1, dir2) {
 						nFound++
@@ -55,17 +56,18 @@ func doSearch(array [][]rune) int {
 }
 
 func searchInTwoDirs(array [][]rune, i, j int, dir1, dir2 []int) bool {
-	return searchInDir(array, i-dir1[0], j-dir1[1], dir1) && searchInDir(array, i-dir2[0], j-dir2[1], dir2)
+	return searchInDir(array, i-dir1[0], j-dir1[1], dir1) &&
+		searchInDir(array, i-dir2[0], j-dir2[1], dir2)
 }
 
 func searchInDir(array [][]rune, i, j int, dir []int) bool {
-	for step := range target {
+	for step, targetRune := range target {
 		x := i + dir[0]*step
 		y := j + dir[1]*step
 		if x < 0 || x >= len(array) || y < 0 || y >= len(array[x]) {
 			return false
 		}
-		if array[x][y] != target[step] {
+		if array[x][y] != targetRune {
 			return false
 		}
 	}
