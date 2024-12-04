@@ -1,3 +1,4 @@
+#file: noinspection SpellCheckingInspection
 # Based on overlapped recommendations between https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322 and https://gist.github.com/cristaloleg/f1610a9ca73ac420cda170fadd21b944.
 # Based on https://github.com/neilotoole/sq/blob/9dc178a9933ebaa592d2190121b40f14f59405d0/.golangci.yml
 # Based on: https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
@@ -50,7 +51,7 @@ linters:
     - gocritic # provides diagnostics that check for bugs, performance and style issues
     - gocyclo # computes and checks the cyclomatic complexity of functions
     - godot # checks if comments end in a period
-    - gofmt # Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification.
+    - gofmt # Gofmt checks whether code was gofmt-ed. By default, this tool runs with -s option to check for code simplification.
     - gofumpt
     - goheader # Checks if file header matches to pattern.
     - goimports # in addition to fixing imports, goimports also formats your code in the same style as gofmt
@@ -574,7 +575,7 @@ issues:
       linters: [ godot ]
     - source: "//noinspection"
       linters: [ gocritic ]
-    - path: "_test\\.go"
+    - path: "_test\\.go$"
       linters:
         - bodyclose
         - dupl
