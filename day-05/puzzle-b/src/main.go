@@ -65,13 +65,11 @@ func main() {
 
 		nValues := len(values)
 		if nValues%2 == 0 {
-			// log.Printf("value list %v is not of odd length", values)
 			continue
 		}
 
 		repairValues(&values, byPreceder, byFollower)
 		if !isValid(values, byPreceder, byFollower) {
-			// log.Printf("could not repair values %v", values)
 			continue
 		}
 
@@ -99,7 +97,6 @@ func isValid(values []int, byPreceder, byFollower map[int][]int) bool {
 			}
 
 			if pos < idx {
-				// log.Printf("found a violation: %d is supposed to follow %d, but they occur in positions %d and %d, respectively", follower, (values)[idx], pos, idx)
 				return false
 			}
 		}
@@ -115,7 +112,6 @@ func isValid(values []int, byPreceder, byFollower map[int][]int) bool {
 			}
 
 			if pos > idx {
-				// log.Printf("found a violation: %d is supposed to precede %d, but they occur in positions %d and %d, respectively", preceder, (values)[idx], pos, idx)
 				return false
 			}
 		}
@@ -126,7 +122,6 @@ func isValid(values []int, byPreceder, byFollower map[int][]int) bool {
 
 func repairValues(values *[]int, byPreceder, byFollower map[int][]int) {
 	nValues := len(*values)
-	// log.Printf("trying to repair %v", *values)
 
 	posByValue := make(map[int]int)
 	for pos, value := range *values {
@@ -144,11 +139,9 @@ func repairValues(values *[]int, byPreceder, byFollower map[int][]int) {
 			}
 
 			if pos < idx {
-				// log.Printf("found a violation: %d is supposed to follow %d, but they occur in positions %d and %d, respectively", follower, (*values)[idx], pos, idx)
 				(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
 				posByValue[follower], posByValue[currentVal] = idx, pos
 				idx = pos - 1
-				// log.Printf("array after repair: %v", *values)
 				break
 			}
 		}
@@ -165,11 +158,9 @@ func repairValues(values *[]int, byPreceder, byFollower map[int][]int) {
 			}
 
 			if pos > idx {
-				// log.Printf("found a violation: %d is supposed to precede %d, but they occur in positions %d and %d, respectively", preceder, (*values)[idx], pos, idx)
 				(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
 				posByValue[preceder], posByValue[currentVal] = idx, pos
 				idx = pos + 1
-				// log.Printf("array after repair: %v", *values)
 				break
 			}
 		}
