@@ -75,26 +75,27 @@ func main() {
 }
 
 func isValid(values []int, precedenceMap map[int][]int) bool {
-	nValues := len(values)
-	posByValue := make(map[int]int)
-	for pos, value := range values {
-		posByValue[value] = pos
-	}
+	posByValue := genPosMap(values)
 
 	// Validate obligatory followers of each value
+	nValues := len(values)
 	for idx := 1; idx < nValues; idx++ {
 		obligFollowers := precedenceMap[values[idx]]
 		for _, follower := range obligFollowers {
 			pos, doesItOccur := posByValue[follower]
-			if !doesItOccur {
-				continue
-			}
-
-			if pos < idx {
+			if doesItOccur && pos < idx {
 				return false
 			}
 		}
 	}
 
 	return true
+}
+
+func genPosMap(values []int) map[int]int {
+	posByValue := make(map[int]int)
+	for pos, value := range values {
+		posByValue[value] = pos
+	}
+	return posByValue
 }

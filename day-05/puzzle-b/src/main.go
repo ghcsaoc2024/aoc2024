@@ -80,22 +80,15 @@ func main() {
 }
 
 func isValid(values []int, precedenceMap map[int][]int) bool {
-	nValues := len(values)
-	posByValue := make(map[int]int)
-	for pos, value := range values {
-		posByValue[value] = pos
-	}
+	posByValue := genPosMap(values)
 
 	// Validate obligatory followers of each value
+	nValues := len(values)
 	for idx := 1; idx < nValues; idx++ {
 		obligFollowers := precedenceMap[values[idx]]
 		for _, follower := range obligFollowers {
 			pos, doesItOccur := posByValue[follower]
-			if !doesItOccur {
-				continue
-			}
-
-			if pos < idx {
+			if doesItOccur && pos < idx {
 				return false
 			}
 		}
@@ -105,24 +98,16 @@ func isValid(values []int, precedenceMap map[int][]int) bool {
 }
 
 func repairValues(values *[]int, precedenceMap map[int][]int) {
-	nValues := len(*values)
-
-	posByValue := make(map[int]int)
-	for pos, value := range *values {
-		posByValue[value] = pos
-	}
+	posByValue := genPosMap(*values)
 
 	// Validate obligatory followers of each value
+	nValues := len(*values)
 	for idx := 1; idx < nValues; idx++ {
 		currentVal := (*values)[idx]
 		obligFollowers := precedenceMap[currentVal]
 		for _, follower := range obligFollowers {
 			pos, doesItOccur := posByValue[follower]
-			if !doesItOccur {
-				continue
-			}
-
-			if pos < idx {
+			if doesItOccur && pos < idx {
 				(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
 				posByValue[follower], posByValue[currentVal] = idx, pos
 				idx = pos - 1
@@ -130,4 +115,12 @@ func repairValues(values *[]int, precedenceMap map[int][]int) {
 			}
 		}
 	}
+}
+
+func genPosMap(values []int) map[int]int {
+	posByValue := make(map[int]int)
+	for pos, value := range values {
+		posByValue[value] = pos
+	}
+	return posByValue
 }
