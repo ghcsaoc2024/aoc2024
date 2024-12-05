@@ -25,7 +25,7 @@ func main() {
 	scanner := bufio.NewScanner(file)
 
 	// Read in the precedence rules
-	byPreceder := make(map[int][]int)
+	precedenceMap := make(map[int][]int)
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Split(line, "|")
@@ -41,7 +41,7 @@ func main() {
 			return num
 		})
 
-		byPreceder[values[0]] = append(byPreceder[values[0]], values[1])
+		precedenceMap[values[0]] = append(precedenceMap[values[0]], values[1])
 	}
 
 	// Read in the page sets
@@ -57,7 +57,7 @@ func main() {
 			return num
 		})
 
-		if !isValid(values, byPreceder) {
+		if !isValid(values, precedenceMap) {
 			continue
 		}
 
@@ -74,7 +74,7 @@ func main() {
 	log.Println(runningTotal)
 }
 
-func isValid(values []int, byPreceder map[int][]int) bool {
+func isValid(values []int, precedenceMap map[int][]int) bool {
 	nValues := len(values)
 	posByValue := make(map[int]int)
 	for pos, value := range values {
@@ -83,7 +83,7 @@ func isValid(values []int, byPreceder map[int][]int) bool {
 
 	// Validate obligatory followers of each value
 	for idx := 1; idx < nValues; idx++ {
-		obligFollowers := byPreceder[values[idx]]
+		obligFollowers := precedenceMap[values[idx]]
 		for _, follower := range obligFollowers {
 			pos, doesItOccur := posByValue[follower]
 			if !doesItOccur {
