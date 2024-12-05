@@ -75,7 +75,7 @@ func main() {
 }
 
 func isValid(values []int, precedenceMap map[int][]int) bool {
-	posByValue := genPosMap(values)
+	posByValue := genPosByValueMap(values)
 
 	// Validate obligatory followers of each value
 	nValues := len(values)
@@ -92,10 +92,8 @@ func isValid(values []int, precedenceMap map[int][]int) bool {
 	return true
 }
 
-func genPosMap(values []int) map[int]int {
-	posByValue := make(map[int]int)
-	for pos, value := range values {
-		posByValue[value] = pos
-	}
-	return posByValue
+func genPosByValueMap(values []int) map[int]int {
+	return lo.FromEntries(lo.Map(values, func(value, pos int) lo.Entry[int, int] {
+		return lo.Entry[int, int]{Key: value, Value: pos}
+	}))
 }
