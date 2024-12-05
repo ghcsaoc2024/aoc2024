@@ -26,7 +26,6 @@ func main() {
 
 	// Read in the precedence rules
 	byPreceder := make(map[int][]int)
-	byFollower := make(map[int][]int)
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Split(line, "|")
@@ -43,7 +42,6 @@ func main() {
 		})
 
 		byPreceder[values[0]] = append(byPreceder[values[0]], values[1])
-		byFollower[values[1]] = append(byFollower[values[1]], values[0])
 	}
 
 	// Read in the page sets
@@ -59,7 +57,7 @@ func main() {
 			return num
 		})
 
-		if isValid(values, byPreceder, byFollower) {
+		if isValid(values, byPreceder) {
 			continue
 		}
 
@@ -68,8 +66,8 @@ func main() {
 			continue
 		}
 
-		repairValues(&values, byPreceder, byFollower)
-		if !isValid(values, byPreceder, byFollower) {
+		repairValues(&values, byPreceder)
+		if !isValid(values, byPreceder) {
 			log.Printf("could not repair %v", values)
 			continue
 		}
@@ -81,7 +79,7 @@ func main() {
 	log.Println(runningTotal)
 }
 
-func isValid(values []int, byPreceder, byFollower map[int][]int) bool {
+func isValid(values []int, byPreceder map[int][]int) bool {
 	nValues := len(values)
 	posByValue := make(map[int]int)
 	for pos, value := range values {
@@ -103,25 +101,10 @@ func isValid(values []int, byPreceder, byFollower map[int][]int) bool {
 		}
 	}
 
-	// Validate obligatory preceders of each value
-	for idx := nValues - 2; idx >= 0; idx-- {
-		obligPreceders := byFollower[values[idx]]
-		for _, preceder := range obligPreceders {
-			pos, doesItOccur := posByValue[preceder]
-			if !doesItOccur {
-				continue
-			}
-
-			if pos > idx {
-				return false
-			}
-		}
-	}
-
 	return true
 }
 
-func repairValues(values *[]int, byPreceder, byFollower map[int][]int) {
+func repairValues(values *[]int, byPreceder map[int][]int) {
 	nValues := len(*values)
 
 	posByValue := make(map[int]int)
@@ -143,25 +126,6 @@ func repairValues(values *[]int, byPreceder, byFollower map[int][]int) {
 				(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
 				posByValue[follower], posByValue[currentVal] = idx, pos
 				idx = pos - 1
-				break
-			}
-		}
-	}
-
-	// Validate obligatory preceders of each value
-	for idx := nValues - 2; idx >= 0; idx-- {
-		currentVal := (*values)[idx]
-		obligPreceders := byFollower[currentVal]
-		for _, preceder := range obligPreceders {
-			pos, doesItOccur := posByValue[preceder]
-			if !doesItOccur {
-				continue
-			}
-
-			if pos > idx {
-				(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
-				posByValue[preceder], posByValue[currentVal] = idx, pos
-				idx = pos + 1
 				break
 			}
 		}
