@@ -70,6 +70,7 @@ func main() {
 
 		repairValues(&values, byPreceder, byFollower)
 		if !isValid(values, byPreceder, byFollower) {
+			log.Printf("could not repair %v", values)
 			continue
 		}
 
