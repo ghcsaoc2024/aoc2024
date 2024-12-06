@@ -74,7 +74,7 @@ func main() {
 	log.Printf("found %d loopifiers", nLoopifiers)
 }
 
-func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coord, int) {
+func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) {
 	initialDir := lib.Coord{Row: -1, Col: 0}
 	currentCoords := initialCoords
 	currentDir := initialDir
@@ -106,7 +106,6 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coo
 			currentDir = lib.TurnRight(currentDir)
 		}
 	}
-	return currentCoords, nVisited
 }
 
 func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
