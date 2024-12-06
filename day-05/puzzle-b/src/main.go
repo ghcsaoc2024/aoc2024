@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -98,23 +99,33 @@ func isValid(values []int, precedenceMap map[int][]int) bool {
 }
 
 func repairValues(values *[]int, precedenceMap map[int][]int) {
-	posByValue := genPosByValueMap(*values)
-
-	// Validate obligatory followers of each value
-	nValues := len(*values)
-	for idx := 1; idx < nValues; idx++ {
-		currentVal := (*values)[idx]
-		obligFollowers := precedenceMap[currentVal]
-		for _, follower := range obligFollowers {
-			pos, doesItOccur := posByValue[follower]
-			if doesItOccur && pos < idx {
-				(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
-				posByValue[follower], posByValue[currentVal] = idx, pos
-				idx = pos - 1
-				break
-			}
+	slices.SortFunc(*values, func(a, b int) int {
+		if slices.Contains(precedenceMap[a], b) {
+			return -1
 		}
-	}
+		if slices.Contains(precedenceMap[b], a) {
+			return 1
+		}
+		return 0
+	})
+
+	// posByValue := genPosByValueMap(*values)
+	//
+	// // Validate obligatory followers of each value
+	// nValues := len(*values)
+	// for idx := 1; idx < nValues; idx++ {
+	// 	currentVal := (*values)[idx]
+	// 	obligFollowers := precedenceMap[currentVal]
+	// 	for _, follower := range obligFollowers {
+	// 		pos, doesItOccur := posByValue[follower]
+	// 		if doesItOccur && pos < idx {
+	// 			(*values)[idx], (*values)[pos] = (*values)[pos], (*values)[idx]
+	// 			posByValue[follower], posByValue[currentVal] = idx, pos
+	// 			idx = pos - 1
+	// 			break
+	// 		}
+	// 	}
+	// }
 }
 
 func genPosByValueMap(values []int) map[int]int {
