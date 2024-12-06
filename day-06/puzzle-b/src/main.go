@@ -7,6 +7,7 @@ import (
 
 	"daysix/lib"
 
+	"github.com/hashicorp/go-set/v3"
 	"github.com/tiendc/go-deepcopy"
 )
 
@@ -109,11 +110,13 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) {
 
 func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 	initialDir := lib.Coord{Row: -1, Col: 0}
-	currentCoords := initialCoords
-	currentDir := initialDir
-	turns := make(map[lib.Coord]int)
+	current := lib.Visitation{
+		Loc: initialCoords,
+		Dir: initialDir,
+	}
+	turns := set.New[lib.Visitation](0)
 	for {
-		nextCoords := currentCoords.MoveOne(currentDir)
+		nextCoords := current.Loc.MoveOne(current.Dir)
 		if !nextCoords.IsValid(dimensions) {
 			return false
 		}
@@ -122,14 +125,14 @@ func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 		case lib.Empty:
 			fallthrough
 		case lib.Visited:
-			currentCoords = nextCoords
+			current.Loc = nextCoords
 			continue
 		case lib.Blocked:
-			currentDir = lib.TurnRight(currentDir)
-			if turns[currentCoords] >= 3 {
+			if turns.Contains(current) {
 				return true
 			}
-			turns[currentCoords]++
+			turns.Insert(current)
+			current.Dir = lib.TurnRight(current.Dir)
 		}
 	}
 }

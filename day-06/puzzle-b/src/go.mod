@@ -3,6 +3,7 @@ module daysix
 go 1.23.4
 
 require (
+	github.com/hashicorp/go-set/v3 v3.0.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tiendc/go-deepcopy v1.2.0
 )

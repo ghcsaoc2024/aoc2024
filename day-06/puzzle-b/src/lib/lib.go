@@ -10,6 +10,11 @@ type Coord struct {
 	Col int
 }
 
+type Visitation struct {
+	Loc Coord
+	Dir Coord
+}
+
 type Cell int
 
 const (
