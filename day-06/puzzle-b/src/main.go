@@ -91,18 +91,18 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coo
 			log.Panic("we're in a loop!") //nolint:revive // Toy code
 		}
 
-		provisionalNextCoords := lib.NextCoords(currentCoords, currentDir)
-		if !lib.IsValidCoord(provisionalNextCoords, dimensions) {
+		nextCoords := lib.NextCoords(currentCoords, currentDir)
+		if !lib.IsValidCoord(nextCoords, dimensions) {
 			break
 		}
 
-		switch array[provisionalNextCoords.Row][provisionalNextCoords.Col] {
+		switch array[nextCoords.Row][nextCoords.Col] {
 		case lib.Empty:
-			array[provisionalNextCoords.Row][provisionalNextCoords.Col] = lib.Visited
+			array[nextCoords.Row][nextCoords.Col] = lib.Visited
 			nVisited++
 			fallthrough
 		case lib.Visited:
-			currentCoords = provisionalNextCoords
+			currentCoords = nextCoords
 			continue
 		case lib.Blocked:
 			currentDir = lib.TurnRight(currentDir)
@@ -126,16 +126,16 @@ func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 		}
 		visitationArray[currentCoords.Row][currentCoords.Col] = append(visitationArray[currentCoords.Row][currentCoords.Col], currentDir)
 
-		provisionalNextCoords := lib.NextCoords(currentCoords, currentDir)
-		if !lib.IsValidCoord(provisionalNextCoords, dimensions) {
+		nextCoords := lib.NextCoords(currentCoords, currentDir)
+		if !lib.IsValidCoord(nextCoords, dimensions) {
 			return false
 		}
 
-		switch array[provisionalNextCoords.Row][provisionalNextCoords.Col] {
+		switch array[nextCoords.Row][nextCoords.Col] {
 		case lib.Empty:
 			fallthrough
 		case lib.Visited:
-			currentCoords = provisionalNextCoords
+			currentCoords = nextCoords
 			continue
 		case lib.Blocked:
 			currentDir = lib.TurnRight(currentDir)
