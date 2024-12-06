@@ -23,7 +23,7 @@ func main() {
 	scanner := bufio.NewScanner(file)
 
 	// Read in the array
-	array, initialCoords := readArray(scanner)
+	array, initialCoords := lib.ReadArray(scanner)
 
 	dimensions := lib.Coord{Row: len(array), Col: len(array[0])}
 	if dimensions.Row < 1 {
@@ -72,32 +72,4 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) int {
 		}
 	}
 	return nVisited
-}
-
-func readArray(scanner *bufio.Scanner) ([][]lib.Cell, lib.Coord) {
-	array := make([][]lib.Cell, 0)
-	initialCoords := lib.Coord{Row: -1, Col: -1}
-	for scanner.Scan() {
-		line := scanner.Text()
-		row := make([]lib.Cell, 0)
-		for _, char := range line {
-			currentCoords := lib.Coord{Row: len(array), Col: len(row)}
-			switch char {
-			case '^':
-				if initialCoords != (lib.Coord{Row: -1, Col: -1}) {
-					log.Panicf("multiple starting points found: had already encountered %v, and now encountered %v", initialCoords, currentCoords) //nolint:revive // Toy code
-				}
-				initialCoords = currentCoords
-				row = append(row, lib.Visited)
-			case '.':
-				row = append(row, lib.Empty)
-			case '#':
-				row = append(row, lib.Blocked)
-			default:
-				log.Panicf("unexpected character in input: %v (current coordinates: %v)", char, currentCoords) //nolint:revive // Toy code
-			}
-		}
-		array = append(array, row)
-	}
-	return array, initialCoords
 }
