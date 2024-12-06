@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"log"
 	"os"
-	"slices"
 
 	"daysix/lib"
 
@@ -112,17 +111,8 @@ func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 	initialDir := lib.Coord{Row: -1, Col: 0}
 	currentCoords := initialCoords
 	currentDir := initialDir
-	visitationArray := make([][][]lib.Coord, len(array))
-	for iRow, row := range array {
-		visitationArray[iRow] = make([][]lib.Coord, len(row))
-	}
-
+	turns := make(map[lib.Coord]int)
 	for {
-		if slices.Contains(visitationArray[currentCoords.Row][currentCoords.Col], currentDir) {
-			return true
-		}
-		visitationArray[currentCoords.Row][currentCoords.Col] = append(visitationArray[currentCoords.Row][currentCoords.Col], currentDir)
-
 		nextCoords := currentCoords.MoveOne(currentDir)
 		if !nextCoords.IsValid(dimensions) {
 			return false
@@ -136,6 +126,10 @@ func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 			continue
 		case lib.Blocked:
 			currentDir = lib.TurnRight(currentDir)
+			if turns[currentCoords] >= 3 {
+				return true
+			}
+			turns[currentCoords]++
 		}
 	}
 }
