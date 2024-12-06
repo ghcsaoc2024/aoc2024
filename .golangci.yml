@@ -52,7 +52,7 @@ linters:
     - gocyclo # computes and checks the cyclomatic complexity of functions
     - godot # checks if comments end in a period
     - gofmt # Gofmt checks whether code was gofmt-ed. By default, this tool runs with -s option to check for code simplification.
-    - gofumpt
+#    - gofumpt
     - goheader # Checks if file header matches to pattern.
     - goimports # in addition to fixing imports, goimports also formats your code in the same style as gofmt
     - gomoddirectives # manages the use of 'replace', 'retract', and 'excludes' directives in go.mod

@@ -7,6 +7,8 @@ import (
 	"slices"
 
 	"daysix/lib"
+
+	"github.com/tiendc/go-deepcopy"
 )
 
 func main() {
@@ -15,9 +17,9 @@ func main() {
 		log.Fatal(err)
 	}
 	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Fatal(err)
+		closeErr := file.Close()
+		if closeErr != nil {
+			log.Fatal(closeErr)
 		}
 	}(file)
 
@@ -34,7 +36,17 @@ func main() {
 	log.Printf("finished reading array (%d rows)", dimensions.Row)
 	log.Printf("initial coordinates: %v", initialCoords)
 
-	// Do the walkabouts
+	// Do an initial walkabout to determine which coordinates are visited *without*
+	// blocking any additional cells
+	walkabout(initialCoords, dimensions, array)
+
+	initialVisitationArray := make([][]lib.Cell, 0)
+	err = deepcopy.Copy(&initialVisitationArray, array)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	// Now, for each visited cell, check if blocking it would create a loop
 	nLoopifiers := 0
 	for row := range dimensions.Row {
 		log.Printf("row %d", row)
@@ -48,6 +60,10 @@ func main() {
 				continue
 			}
 
+			if initialVisitationArray[currentCoords.Row][currentCoords.Col] != lib.Visited {
+				continue
+			}
+
 			array[currentCoords.Row][currentCoords.Col] = lib.Blocked
 			if isLoopful(initialCoords, dimensions, array) {
 				nLoopifiers++
@@ -58,6 +74,41 @@ func main() {
 	}
 
 	log.Printf("found %d loopifiers", nLoopifiers)
+}
+
+func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coord, int) {
+	initialDir := lib.Coord{Row: -1, Col: 0}
+	currentCoords := initialCoords
+	currentDir := initialDir
+	nVisited := 1
+	timesReset := 0
+	for {
+		if currentCoords == initialCoords && currentDir == initialDir {
+			timesReset++
+		}
+
+		if timesReset > 1 {
+			log.Panic("we're in a loop!") //nolint:revive // Toy code
+		}
+
+		provisionalNextCoords := lib.NextCoords(currentCoords, currentDir)
+		if !lib.IsValidCoord(provisionalNextCoords, dimensions) {
+			break
+		}
+
+		switch array[provisionalNextCoords.Row][provisionalNextCoords.Col] {
+		case lib.Empty:
+			array[provisionalNextCoords.Row][provisionalNextCoords.Col] = lib.Visited
+			nVisited++
+			fallthrough
+		case lib.Visited:
+			currentCoords = provisionalNextCoords
+			continue
+		case lib.Blocked:
+			currentDir = lib.TurnRight(currentDir)
+		}
+	}
+	return currentCoords, nVisited
 }
 
 func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
@@ -82,6 +133,8 @@ func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 
 		switch array[provisionalNextCoords.Row][provisionalNextCoords.Col] {
 		case lib.Empty:
+			fallthrough
+		case lib.Visited:
 			currentCoords = provisionalNextCoords
 			continue
 		case lib.Blocked:

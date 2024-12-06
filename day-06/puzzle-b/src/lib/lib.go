@@ -9,6 +9,7 @@ type Cell int
 
 const (
 	Empty Cell = iota
+	Visited
 	Blocked
 )
 
