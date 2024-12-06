@@ -34,13 +34,12 @@ func main() {
 	log.Printf("initial coordinates: %v", initialCoords)
 
 	// Do the walkabout
-	currentCoords, nVisited := walkabout(initialCoords, dimensions, array)
+	nVisited := walkabout(initialCoords, dimensions, array)
 
-	log.Printf("current coordinates: %v", currentCoords)
 	log.Printf("visited %d cells", nVisited)
 }
 
-func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coord, int) {
+func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) int {
 	initialDir := lib.Coord{Row: -1, Col: 0}
 	currentCoords := initialCoords
 	currentDir := initialDir
@@ -55,8 +54,8 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coo
 			log.Panic("we're in a loop!") //nolint:revive // Toy code
 		}
 
-		nextCoords := lib.NextCoords(currentCoords, currentDir)
-		if !lib.IsValidCoord(nextCoords, dimensions) {
+		nextCoords := currentCoords.MoveOne(currentDir)
+		if !nextCoords.IsValid(dimensions) {
 			break
 		}
 
@@ -72,7 +71,7 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coo
 			currentDir = lib.TurnRight(currentDir)
 		}
 	}
-	return currentCoords, nVisited
+	return nVisited
 }
 
 func readArray(scanner *bufio.Scanner) ([][]lib.Cell, lib.Coord) {

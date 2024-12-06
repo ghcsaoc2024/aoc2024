@@ -49,7 +49,6 @@ func main() {
 	// Now, for each visited cell, check if blocking it would create a loop
 	nLoopifiers := 0
 	for row := range dimensions.Row {
-		log.Printf("row %d", row)
 		for col := range dimensions.Col {
 			currentCoords := lib.Coord{Row: row, Col: col}
 			if currentCoords == initialCoords {
@@ -70,7 +69,6 @@ func main() {
 			}
 			array[currentCoords.Row][currentCoords.Col] = lib.Empty
 		}
-		log.Printf("found %d loopifiers", nLoopifiers)
 	}
 
 	log.Printf("found %d loopifiers", nLoopifiers)
@@ -91,8 +89,8 @@ func walkabout(initialCoords, dimensions lib.Coord, array [][]lib.Cell) (lib.Coo
 			log.Panic("we're in a loop!") //nolint:revive // Toy code
 		}
 
-		nextCoords := lib.NextCoords(currentCoords, currentDir)
-		if !lib.IsValidCoord(nextCoords, dimensions) {
+		nextCoords := currentCoords.MoveOne(currentDir)
+		if !nextCoords.IsValid(dimensions) {
 			break
 		}
 
@@ -126,8 +124,8 @@ func isLoopful(initialCoords, dimensions lib.Coord, array [][]lib.Cell) bool {
 		}
 		visitationArray[currentCoords.Row][currentCoords.Col] = append(visitationArray[currentCoords.Row][currentCoords.Col], currentDir)
 
-		nextCoords := lib.NextCoords(currentCoords, currentDir)
-		if !lib.IsValidCoord(nextCoords, dimensions) {
+		nextCoords := currentCoords.MoveOne(currentDir)
+		if !nextCoords.IsValid(dimensions) {
 			return false
 		}
 

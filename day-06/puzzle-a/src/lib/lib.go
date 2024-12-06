@@ -13,18 +13,18 @@ const (
 	Blocked
 )
 
-func NextCoords(current, dir Coord) Coord {
+func (c Coord) MoveOne(dir Coord) Coord {
 	return Coord{
-		Row: current.Row + dir.Row,
-		Col: current.Col + dir.Col,
+		Row: c.Row + dir.Row,
+		Col: c.Col + dir.Col,
 	}
 }
 
-func IsValidCoord(coords, dimensions Coord) bool {
-	if coords.Row < 0 || coords.Row >= dimensions.Row {
+func (c Coord) IsValid(dimension Coord) bool {
+	if c.Row < 0 || c.Row >= dimension.Row {
 		return false
 	}
-	if coords.Col < 0 || coords.Col >= dimensions.Col {
+	if c.Col < 0 || c.Col >= dimension.Col {
 		return false
 	}
 	return true
