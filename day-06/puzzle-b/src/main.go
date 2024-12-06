@@ -33,6 +33,10 @@ func main() {
 		log.Panic("no rows in input")
 	}
 
+	if !initialCoords.IsValid(dimensions) {
+		log.Panicf("initial coordinates %v are not valid (dimensions %v)", initialCoords, dimensions)
+	}
+
 	log.Printf("finished reading array (%d rows)", dimensions.Row)
 	log.Printf("initial coordinates: %v", initialCoords)
 
