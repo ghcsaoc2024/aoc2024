@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-set/v3"
 	"github.com/samber/lo"
 )
 
@@ -75,19 +76,50 @@ func main() {
 	log.Printf("running total: %d", runningTotal)
 }
 
-func solvable(result int64, operands []int64) bool {
+func solvable(desiredResult int64, operands []int64) bool {
 	nOperands := len(operands)
 	nOps := nOperands - 1
-	ops := make([]Operator, nOps)
-	nCombinations := math.Pow(float64(NumOfDiffOperators), float64(nOps))
-	for iCombo := range int64(nCombinations) {
+	middleOpIdx := nOps / 2
+	semiSolutions := set.New[int64](0)
+
+	var ops []Operator
+	var nCombinations int64
+
+	// First half
+	nFirstHalfOps := middleOpIdx
+	ops = make([]Operator, nFirstHalfOps)
+	nCombinations = int64(math.Pow(float64(NumOfDiffOperators), float64(nFirstHalfOps)))
+	for iCombo := range nCombinations {
 		combo := iCombo
-		for iOp := range nOps {
+		for iOp := range nFirstHalfOps {
 			ops[iOp] = Operator(combo % int64(NumOfDiffOperators))
 			combo /= int64(NumOfDiffOperators)
 		}
 
-		if result == calc(operands, ops) {
+		result := calcFwd(operands, ops, desiredResult)
+		if result == -1 {
+			continue
+		}
+		semiSolutions.Insert(result)
+	}
+
+	// Second half
+	nSecondHalfOps := nOps - middleOpIdx
+	ops = make([]Operator, nSecondHalfOps)
+	nCombinations = int64(math.Pow(float64(NumOfDiffOperators), float64(nSecondHalfOps)))
+	for iCombo := range nCombinations {
+		combo := iCombo
+		for iOp := range nSecondHalfOps {
+			ops[iOp] = Operator(combo % int64(NumOfDiffOperators))
+			combo /= int64(NumOfDiffOperators)
+		}
+
+		result := calcBack(operands, ops, desiredResult)
+		if result == -1 {
+			continue
+		}
+
+		if semiSolutions.Contains(result) {
 			return true
 		}
 	}
@@ -95,29 +127,78 @@ func solvable(result int64, operands []int64) bool {
 	return false
 }
 
-func calc(operands []int64, ops []Operator) int64 {
+func calcFwd(operands []int64, ops []Operator, desiredResult int64) int64 {
 	nOperands := len(operands)
 	if nOperands < 1 {
 		return 0
 	}
 
 	result := operands[0]
+	nOps := len(ops)
 	var err error
-	for idx := 1; idx < nOperands; idx++ {
-		switch ops[idx-1] {
+	for idx := range nOps {
+		if result > desiredResult {
+			return -1
+		}
+
+		switch ops[idx] {
 		case OpAdd:
-			result += operands[idx]
+			result += operands[idx+1]
 		case OpMul:
-			result *= operands[idx]
+			result *= operands[idx+1]
 		case OpConcat:
 			resultStr := strconv.FormatInt(result, 10)
-			operandStr := strconv.FormatInt(operands[idx], 10)
+			operandStr := strconv.FormatInt(operands[idx+1], 10)
 			result, err = strconv.ParseInt(resultStr+operandStr, 10, 64)
 			if err != nil {
 				log.Panicf("internal error: could not convert `%v` to int64", operandStr) //nolint:revive // Toy code
 			}
 		case NumOfDiffOperators:
-			log.Panicf("internal error: unknown operator %d", ops[idx-1]) //nolint:revive // Toy code
+			log.Panicf("internal error: unknown operator %d", ops[idx]) //nolint:revive // Toy code
+		}
+	}
+
+	return result
+}
+
+func calcBack(operands []int64, ops []Operator, desiredResult int64) int64 {
+	nOperands := len(operands)
+	if nOperands < 1 {
+		return 0
+	}
+
+	result := desiredResult
+	nOps := len(ops)
+	var err error
+	for idx := range nOps {
+		if result < 1 {
+			return -1
+		}
+
+		switch ops[idx] {
+		case OpAdd:
+			result -= operands[nOperands-idx-1]
+		case OpMul:
+			if result%operands[nOperands-idx-1] != 0 {
+				return -1
+			}
+			result /= operands[nOperands-idx-1]
+		case OpConcat:
+			resultStr := strconv.FormatInt(result, 10)
+			operandStr := strconv.FormatInt(operands[nOperands-idx-1], 10)
+			if !strings.HasSuffix(resultStr, operandStr) {
+				return -1
+			}
+			trimmed := strings.TrimSuffix(resultStr, operandStr)
+			if len(trimmed) < 1 {
+				return -1
+			}
+			result, err = strconv.ParseInt(trimmed, 10, 64)
+			if err != nil {
+				log.Panicf("internal error: could not convert `%v` to int64", trimmed) //nolint:revive // Toy code
+			}
+		case NumOfDiffOperators:
+			log.Panicf("internal error: unknown operator %d", ops[idx]) //nolint:revive // Toy code
 		}
 	}
 
