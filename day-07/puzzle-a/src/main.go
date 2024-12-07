@@ -65,7 +65,7 @@ func main() {
 		})
 
 		maxAttainable += result
-		if solvable(result, operands) {
+		if isSolvable(result, operands) {
 			runningTotal += result
 		}
 	}
@@ -74,7 +74,7 @@ func main() {
 	log.Printf("running total: %d", runningTotal)
 }
 
-func solvable(result int64, operands []int64) bool {
+func isSolvable(result int64, operands []int64) bool {
 	nOperands := len(operands)
 	nOps := nOperands - 1
 	ops := make([]Operator, nOps)
