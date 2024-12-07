@@ -25,7 +25,7 @@ const (
 
 func main() {
 	var args struct {
-		SweetSpot float64 `arg:"positional,required" help:"sweet spot for meet-in-the-middle"`
+		SweetSpot float64 `arg:"positional,required" help:"sweet spot for meet-in-the-\"middle\""`
 	}
 	arg.MustParse(&args)
 
@@ -33,7 +33,7 @@ func main() {
 	case args.SweetSpot <= 0:
 		fallthrough
 	case args.SweetSpot >= 1:
-		log.Panicf("sweet spot must be larger than 0 and smaller than 1; got %f", args.SweetSpot)
+		log.Fatalf("sweet spot must be larger than 0.0 and smaller than 1.0; got %f", args.SweetSpot)
 	}
 
 	file, err := os.Open("../input/input.txt")
