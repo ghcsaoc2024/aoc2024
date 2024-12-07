@@ -154,14 +154,15 @@ func calcFwd(operands []int64, ops []Operator, desiredResult int64) int64 {
 			return -1
 		}
 
+		operand := operands[idx+1]
 		switch ops[idx] {
 		case OpAdd:
-			result += operands[idx+1]
+			result += operand
 		case OpMul:
-			result *= operands[idx+1]
+			result *= operand
 		case OpConcat:
 			resultStr := strconv.FormatInt(result, 10)
-			operandStr := strconv.FormatInt(operands[idx+1], 10)
+			operandStr := strconv.FormatInt(operand, 10)
 			result, err = strconv.ParseInt(resultStr+operandStr, 10, 64)
 			if err != nil {
 				log.Panicf("internal error: could not convert `%v` to int64", operandStr) //nolint:revive // Toy code
@@ -188,17 +189,18 @@ func calcBack(operands []int64, ops []Operator, desiredResult int64) int64 {
 			return -1
 		}
 
+		operand := operands[nOperands-idx-1]
 		switch ops[idx] {
 		case OpAdd:
-			result -= operands[nOperands-idx-1]
+			result -= operand
 		case OpMul:
-			if result%operands[nOperands-idx-1] != 0 {
+			if result%operand != 0 {
 				return -1
 			}
-			result /= operands[nOperands-idx-1]
+			result /= operand
 		case OpConcat:
 			resultStr := strconv.FormatInt(result, 10)
-			operandStr := strconv.FormatInt(operands[nOperands-idx-1], 10)
+			operandStr := strconv.FormatInt(operand, 10)
 			if !strings.HasSuffix(resultStr, operandStr) {
 				return -1
 			}
