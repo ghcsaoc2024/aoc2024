@@ -80,7 +80,7 @@ func main() {
 		})
 
 		maxAttainable += result
-		if solvable(result, operands, args.SweetSpot) {
+		if isSolvable(result, operands, args.SweetSpot) {
 			runningTotal += result
 		}
 	}
@@ -89,7 +89,7 @@ func main() {
 	log.Printf("running total: %d", runningTotal)
 }
 
-func solvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
+func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	nOperands := len(operands)
 	nOps := nOperands - 1
 	middleOpIdx := int(sweetSpot * float64(nOps))
