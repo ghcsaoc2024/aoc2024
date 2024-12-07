@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alexflint/go-arg"
 	"github.com/hashicorp/go-set/v3"
 	"github.com/samber/lo"
 )
@@ -23,6 +24,18 @@ const (
 )
 
 func main() {
+	var args struct {
+		SweetSpot float64 `arg:"positional,required" help:"sweet spot for meet-in-the-middle"`
+	}
+	arg.MustParse(&args)
+
+	switch {
+	case args.SweetSpot <= 0:
+		fallthrough
+	case args.SweetSpot >= 1:
+		log.Panicf("sweet spot must be larger than 0 and smaller than 1; got %f", args.SweetSpot)
+	}
+
 	file, err := os.Open("../input/input.txt")
 	if err != nil {
 		log.Fatal(err)
@@ -67,7 +80,7 @@ func main() {
 		})
 
 		maxAttainable += result
-		if solvable(result, operands) {
+		if solvable(result, operands, args.SweetSpot) {
 			runningTotal += result
 		}
 	}
@@ -76,10 +89,10 @@ func main() {
 	log.Printf("running total: %d", runningTotal)
 }
 
-func solvable(desiredResult int64, operands []int64) bool {
+func solvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	nOperands := len(operands)
 	nOps := nOperands - 1
-	middleOpIdx := nOps / 2
+	middleOpIdx := int(sweetSpot * float64(nOps))
 	semiSolutions := set.New[int64](0)
 
 	var ops []Operator
