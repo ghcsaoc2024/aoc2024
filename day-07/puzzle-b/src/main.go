@@ -92,7 +92,7 @@ func main() {
 func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	nOperands := len(operands)
 	nOps := nOperands - 1
-	middleOpIdx := int(sweetSpot * float64(nOps))
+	middleOpIdx := int(math.Round(float64(nOps) * sweetSpot))
 	semiSolutions := set.New[int64](0)
 
 	var ops []Operator
