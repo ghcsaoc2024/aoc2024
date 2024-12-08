@@ -9,11 +9,11 @@ type Coord struct {
 	Col int
 }
 
-func (c Coord) IsValid(dimension Coord) bool {
-	if c.Row < 0 || c.Row >= dimension.Row {
+func (c Coord) IsValid(ddimensions Coord) bool {
+	if c.Row < 0 || c.Row >= ddimensions.Row {
 		return false
 	}
-	if c.Col < 0 || c.Col >= dimension.Col {
+	if c.Col < 0 || c.Col >= ddimensions.Col {
 		return false
 	}
 	return true
