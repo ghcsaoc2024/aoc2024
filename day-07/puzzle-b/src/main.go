@@ -131,25 +131,25 @@ func main() {
 
 func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	nOperands := len(operands)
-	nOps := nOperands - 1
-	middleOpIdx := int(math.Round(float64(nOps) * sweetSpot))
+	nOperators := nOperands - 1
+	middleOpIdx := int(math.Round(float64(nOperators) * sweetSpot))
 	semiSolutions := set.New[int64](0)
 
-	var ops []Operator
+	var operators []Operator
 	var nCombinations int64
 
 	// First half
-	nFirstHalfOps := middleOpIdx
-	ops = make([]Operator, nFirstHalfOps)
-	nCombinations = int64(math.Pow(float64(NumOfDiffOperators), float64(nFirstHalfOps)))
+	nFirstHalfOperators := middleOpIdx
+	operators = make([]Operator, nFirstHalfOperators)
+	nCombinations = int64(math.Pow(float64(NumOfDiffOperators), float64(nFirstHalfOperators)))
 	for iCombo := range nCombinations {
 		combo := iCombo
-		for iOp := range nFirstHalfOps {
-			ops[iOp] = Operator(combo % int64(NumOfDiffOperators))
+		for iOperator := range nFirstHalfOperators {
+			operators[iOperator] = Operator(combo % int64(NumOfDiffOperators))
 			combo /= int64(NumOfDiffOperators)
 		}
 
-		result := calcFwd(operands, ops, desiredResult)
+		result := calcFwd(operands, operators, desiredResult)
 		if result == -1 {
 			continue
 		}
@@ -157,17 +157,17 @@ func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	}
 
 	// Second half
-	nSecondHalfOps := nOps - middleOpIdx
-	ops = make([]Operator, nSecondHalfOps)
-	nCombinations = int64(math.Pow(float64(NumOfDiffOperators), float64(nSecondHalfOps)))
+	nSecondHalfOperators := nOperators - middleOpIdx
+	operators = make([]Operator, nSecondHalfOperators)
+	nCombinations = int64(math.Pow(float64(NumOfDiffOperators), float64(nSecondHalfOperators)))
 	for iCombo := range nCombinations {
 		combo := iCombo
-		for iOp := range nSecondHalfOps {
-			ops[iOp] = Operator(combo % int64(NumOfDiffOperators))
+		for iOperator := range nSecondHalfOperators {
+			operators[iOperator] = Operator(combo % int64(NumOfDiffOperators))
 			combo /= int64(NumOfDiffOperators)
 		}
 
-		result := calcBack(operands, ops, desiredResult)
+		result := calcBack(operands, operators, desiredResult)
 		if result == -1 {
 			continue
 		}
@@ -180,22 +180,22 @@ func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	return false
 }
 
-func calcFwd(operands []int64, ops []Operator, desiredResult int64) int64 {
+func calcFwd(operands []int64, operators []Operator, desiredResult int64) int64 {
 	nOperands := len(operands)
 	if nOperands < 1 {
 		return 0
 	}
 
 	result := operands[0]
-	nOps := len(ops)
+	nOperators := len(operators)
 	var err error
-	for idx := range nOps {
+	for iOperator := range nOperators {
 		if result > desiredResult {
 			return -1
 		}
 
-		operand := operands[idx+1]
-		switch ops[idx] {
+		operand := operands[iOperator+1]
+		switch operators[iOperator] {
 		case OpAdd:
 			result += operand
 		case OpMul:
@@ -208,29 +208,29 @@ func calcFwd(operands []int64, ops []Operator, desiredResult int64) int64 {
 				log.Panicf("internal error: could not convert `%v` to int64", operandStr) //nolint:revive // Toy code
 			}
 		case NumOfDiffOperators:
-			log.Panicf("internal error: unknown operator %d", ops[idx]) //nolint:revive // Toy code
+			log.Panicf("internal error: unknown operator %d", operators[iOperator]) //nolint:revive // Toy code
 		}
 	}
 
 	return result
 }
 
-func calcBack(operands []int64, ops []Operator, desiredResult int64) int64 {
+func calcBack(operands []int64, operators []Operator, desiredResult int64) int64 {
 	nOperands := len(operands)
 	if nOperands < 1 {
 		return 0
 	}
 
 	result := desiredResult
-	nOps := len(ops)
+	nOperators := len(operators)
 	var err error
-	for idx := range nOps {
+	for iOperator := range nOperators {
 		if result < 1 {
 			return -1
 		}
 
-		operand := operands[nOperands-idx-1]
-		switch ops[idx] {
+		operand := operands[nOperands-iOperator-1]
+		switch operators[iOperator] {
 		case OpAdd:
 			result -= operand
 		case OpMul:
@@ -253,7 +253,7 @@ func calcBack(operands []int64, ops []Operator, desiredResult int64) int64 {
 				log.Panicf("internal error: could not convert `%v` to int64", trimmed) //nolint:revive // Toy code
 			}
 		case NumOfDiffOperators:
-			log.Panicf("internal error: unknown operator %d", ops[idx]) //nolint:revive // Toy code
+			log.Panicf("internal error: unknown operator %d", operators[iOperator]) //nolint:revive // Toy code
 		}
 	}
 
