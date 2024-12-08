@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"dayeight/lib"
+	"main/lib"
 
 	"github.com/hashicorp/go-set/v3"
 )
