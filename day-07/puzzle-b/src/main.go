@@ -30,9 +30,9 @@ type WorkerTask struct {
 	sweetSpot float64
 }
 
-func worker(tasks <-chan WorkerTask, resultsChan chan<- int64, wg *sync.WaitGroup) {
+func worker(taskChan <-chan WorkerTask, resultsChan chan<- int64, wg *sync.WaitGroup) {
 	defer wg.Done()
-	for task := range tasks {
+	for task := range taskChan {
 		if isSolvable(task.result, task.operands, task.sweetSpot) {
 			resultsChan <- task.result
 		}
