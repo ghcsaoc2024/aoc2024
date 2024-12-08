@@ -24,6 +24,8 @@ const (
 	NumOfDiffOperators
 )
 
+const MaxNumWorkers = 65536
+
 type WorkerTask struct {
 	result    int64
 	operands  []int64
@@ -48,6 +50,10 @@ func main() {
 
 	if args.SweetSpot <= 0 || args.SweetSpot >= 1 {
 		log.Fatalf("sweet spot must be larger than 0.0 and smaller than 1.0; got %f", args.SweetSpot)
+	}
+
+	if args.NumWorkers < 1 || args.NumWorkers > MaxNumWorkers {
+		log.Fatalf("sweet spot must be at least 1 and no more than %d; got %d", MaxNumWorkers, args.NumWorkers)
 	}
 
 	file, err := os.Open("../input/input.txt")
