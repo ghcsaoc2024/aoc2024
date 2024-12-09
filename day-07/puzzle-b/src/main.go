@@ -134,8 +134,9 @@ func main() {
 		runningTotal.Add(runningTotal, &result)
 	}
 
-	log.Printf("max attainable: %d", maxAttainable)
-	log.Printf("running total: %d", runningTotal)
+	maxAttainableStr := maxAttainable.String()
+	log.Printf("max attainable:  %s", maxAttainableStr)
+	log.Printf("running total:   %*v", len(maxAttainableStr), runningTotal)
 }
 
 func isSolvable(desiredResult big.Int, operands []big.Int, sweetSpot float64) bool {
