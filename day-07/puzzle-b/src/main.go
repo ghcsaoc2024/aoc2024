@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"log"
 	"math"
+	"math/big"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -27,12 +27,12 @@ const (
 const MaxNumWorkers = 65536
 
 type WorkerTask struct {
-	result    int64
-	operands  []int64
+	result    big.Int
+	operands  []big.Int
 	sweetSpot float64
 }
 
-func worker(taskChan <-chan WorkerTask, resultsChan chan<- int64, wg *sync.WaitGroup) {
+func worker(taskChan <-chan WorkerTask, resultsChan chan<- big.Int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for task := range taskChan {
 		if isSolvable(task.result, task.operands, task.sweetSpot) {
@@ -76,12 +76,12 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 	iLine := 0
-	maxAttainable := int64(0)
-	runningTotal := int64(0)
+	maxAttainable := big.NewInt(0)
+	runningTotal := big.NewInt(0)
 
 	// Task and result channels
 	taskChan := make(chan WorkerTask, args.NumWorkers)
-	resultsChan := make(chan int64)
+	resultsChan := make(chan big.Int)
 
 	// Setup worker pool
 	var wg sync.WaitGroup
@@ -101,21 +101,23 @@ func main() {
 				continue
 			}
 
-			result, err := strconv.ParseInt(matches[1], 10, 64)
-			if err != nil {
-				log.Panicf("internal error: could not convert `%v` to int64", matches[1])
+			var result big.Int
+			_, success := result.SetString(matches[1], 10) //nolint:mnd // false positive
+			if !success {
+				log.Panicf("internal error: could not convert `%v` to big.Int", matches[1])
 			}
 
 			operandStrings := strings.Fields(matches[2])
-			operands := lo.Map(operandStrings, func(s string, _ int) int64 {
-				operand, err := strconv.ParseInt(s, 10, 64)
-				if err != nil {
-					log.Panicf("internal error: could not convert `%v` to int64", s)
+			operands := lo.Map(operandStrings, func(s string, _ int) big.Int {
+				var operand big.Int
+				_, success := operand.SetString(s, 10) //nolint:mnd // false positive
+				if !success {
+					log.Panicf("internal error: could not convert `%v` to big.Int", s)
 				}
 				return operand
 			})
 
-			maxAttainable += result
+			maxAttainable.Add(maxAttainable, &result)
 
 			// Send task to the worker pool
 			taskChan <- WorkerTask{result: result, operands: operands, sweetSpot: args.SweetSpot}
@@ -129,18 +131,18 @@ func main() {
 	}()
 
 	for result := range resultsChan {
-		runningTotal += result
+		runningTotal.Add(runningTotal, &result)
 	}
 
 	log.Printf("max attainable: %d", maxAttainable)
 	log.Printf("running total: %d", runningTotal)
 }
 
-func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
+func isSolvable(desiredResult big.Int, operands []big.Int, sweetSpot float64) bool {
 	nOperands := len(operands)
 	nOperators := nOperands - 1
 	middleOpIdx := int(math.Round(float64(nOperators) * sweetSpot))
-	semiSolutions := set.New[int64](0)
+	semiSolutions := set.New[string](0)
 
 	var operators []Operator
 	var nCombinations int64
@@ -157,10 +159,10 @@ func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 		}
 
 		result := calcFwd(operands, operators, desiredResult)
-		if result == -1 {
+		if result == nil {
 			continue
 		}
-		semiSolutions.Insert(result)
+		semiSolutions.Insert(result.String())
 	}
 
 	// Second half
@@ -175,11 +177,11 @@ func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 		}
 
 		result := calcBack(operands, operators, desiredResult)
-		if result == -1 {
+		if result == nil {
 			continue
 		}
 
-		if semiSolutions.Contains(result) {
+		if semiSolutions.Contains(result.String()) {
 			return true
 		}
 	}
@@ -187,82 +189,83 @@ func isSolvable(desiredResult int64, operands []int64, sweetSpot float64) bool {
 	return false
 }
 
-func calcFwd(operands []int64, operators []Operator, desiredResult int64) int64 {
+func calcFwd(operands []big.Int, operators []Operator, desiredResult big.Int) *big.Int {
 	nOperands := len(operands)
 	if nOperands < 1 {
-		return 0
+		return nil
 	}
 
-	result := operands[0]
+	var result big.Int
+	result.Set(&operands[0])
 	nOperators := len(operators)
-	var err error
 	for iOperator := range nOperators {
-		if result > desiredResult {
-			return -1
+		if result.Cmp(&desiredResult) > 0 {
+			return nil
 		}
 
 		operand := operands[iOperator+1]
 		switch operators[iOperator] {
 		case OpAdd:
-			result += operand
+			result.Add(&result, &operand)
 		case OpMul:
-			result *= operand
+			result.Mul(&result, &operand)
 		case OpConcat:
-			resultStr := strconv.FormatInt(result, 10)
-			operandStr := strconv.FormatInt(operand, 10)
-			result, err = strconv.ParseInt(resultStr+operandStr, 10, 64)
-			if err != nil {
-				log.Panicf("internal error: could not convert `%v` to int64", operandStr) //nolint:revive // Toy code
+			resultStr := result.String()
+			operandStr := operand.String()
+			_, success := result.SetString(resultStr+operandStr, 10) //nolint:mnd // false positive
+			if !success {
+				log.Panicf("internal error: could not convert `%v` to big.Int", operandStr) //nolint:revive // Toy code
 			}
 		case NumOfDiffOperators:
 			log.Panicf("internal error: unknown operator %d", operators[iOperator]) //nolint:revive // Toy code
 		}
 	}
 
-	return result
+	return &result
 }
 
-func calcBack(operands []int64, operators []Operator, desiredResult int64) int64 {
+func calcBack(operands []big.Int, operators []Operator, desiredResult big.Int) *big.Int {
 	nOperands := len(operands)
 	if nOperands < 1 {
-		return 0
+		return nil
 	}
 
-	result := desiredResult
+	var result big.Int
+	result.Set(&desiredResult)
 	nOperators := len(operators)
-	var err error
 	for iOperator := range nOperators {
-		if result < 1 {
-			return -1
+		if result.Sign() < 1 {
+			return nil
 		}
 
 		operand := operands[nOperands-iOperator-1]
 		switch operators[iOperator] {
 		case OpAdd:
-			result -= operand
+			result.Sub(&result, &operand)
 		case OpMul:
-			if result%operand != 0 {
-				return -1
+			var remainder big.Int
+			result.QuoRem(&result, &operand, &remainder)
+			if remainder.Sign() != 0 {
+				return nil
 			}
-			result /= operand
 		case OpConcat:
-			resultStr := strconv.FormatInt(result, 10)
-			operandStr := strconv.FormatInt(operand, 10)
+			resultStr := result.String()
+			operandStr := operand.String()
 			if !strings.HasSuffix(resultStr, operandStr) {
-				return -1
+				return nil
 			}
 			trimmed := strings.TrimSuffix(resultStr, operandStr)
 			if len(trimmed) < 1 {
-				return -1
+				return nil
 			}
-			result, err = strconv.ParseInt(trimmed, 10, 64)
-			if err != nil {
-				log.Panicf("internal error: could not convert `%v` to int64", trimmed) //nolint:revive // Toy code
+			_, success := result.SetString(trimmed, 10) //nolint:mnd // false positive
+			if !success {
+				log.Panicf("internal error: could not convert `%v` to big.Int", trimmed) //nolint:revive // Toy code
 			}
 		case NumOfDiffOperators:
 			log.Panicf("internal error: unknown operator %d", operators[iOperator]) //nolint:revive // Toy code
 		}
 	}
 
-	return result
+	return &result
 }
