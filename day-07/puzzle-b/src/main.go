@@ -43,6 +43,7 @@ func worker(taskChan <-chan WorkerTask, resultsChan chan<- int64, wg *sync.WaitG
 
 func main() {
 	var args struct {
+		InputFile  string  `arg:"positional,required" help:"input file"`
 		SweetSpot  float64 `arg:"positional,required" help:"sweet spot for meet-in-the-\"middle\""`
 		NumWorkers int     `arg:"-n,env:NUM_WORKERS"  default:"1"                                  help:"number of workers to use"`
 	}
@@ -56,7 +57,7 @@ func main() {
 		log.Fatalf("sweet spot must be at least 1 and no more than %d; got %d", MaxNumWorkers, args.NumWorkers)
 	}
 
-	file, err := os.Open("../input/input.txt")
+	file, err := os.Open(args.InputFile)
 	if err != nil {
 		log.Fatal(err)
 	}
