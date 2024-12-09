@@ -115,6 +115,10 @@ func getFileInfo(diskContents []int, lastFilledPtr int) FileInfo {
 	return FileInfo{ID: currFileID, Length: fileLength, Start: fileStart, End: fileEnd}
 }
 
+// Note that the values of freeSpacePtr (as well as any other pointers to disk
+// locations currently being held) should be considered invalidated once this
+// function has applied.
+// Disk contents are modified in-place.
 func moveFile(diskContents *[]int, fileInfo FileInfo, freeSpacePtr int) {
 	emptyRun := lib.RunOf(fileInfo.Length, lib.FreeSpaceIndicator)
 	copy((*diskContents)[freeSpacePtr:], (*diskContents)[fileInfo.Start:fileInfo.End])
