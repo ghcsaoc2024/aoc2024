@@ -12,6 +12,23 @@ import (
 	"github.com/samber/lo"
 )
 
+type FileInfo struct {
+	ID     int
+	Length int
+	Start  int
+	End    int
+}
+
+func occupiedPred(val int) bool {
+	return val != lib.FreeSpaceIndicator
+}
+
+func generateAntiPred(val int) func(int) bool {
+	return func(v int) bool {
+		return v != val
+	}
+}
+
 func main() {
 	var args struct {
 		InputFile string `arg:"positional,required" help:"input file"`
@@ -30,34 +47,21 @@ func main() {
 	}(file)
 
 	scanner := bufio.NewScanner(file)
-
 	diskContents := lib.ReadInput(scanner)
-	log.Printf("length of disk contents: %d", len(diskContents))
+	log.Printf("length of disk: %d", len(diskContents))
 
-	occupiedPred := func(val int) bool {
-		return val != lib.FreeSpaceIndicator
-	}
-	nonValuePred := func(val int) func(int) bool {
-		return func(v int) bool {
-			return v != val
-		}
-	}
-	freeSpacePtr := lo.IndexOf(diskContents, lib.FreeSpaceIndicator)
+	freeSpacePtr := resetFreeSpacePtr(diskContents)
 	_, lastFilledPtr, _ := lo.FindLastIndexOf(diskContents, occupiedPred)
 	for freeSpacePtr != -1 && lastFilledPtr != -1 {
-		currFileID := diskContents[lastFilledPtr]
-		_, fileStart, _ := lo.FindLastIndexOf(diskContents[:lastFilledPtr], nonValuePred(currFileID))
-		fileStart++
-		fileEnd := lastFilledPtr + 1
-		fileLength := fileEnd - fileStart
+		fileInfo := getFileInfo(diskContents, lastFilledPtr)
 
 		if freeSpacePtr >= lastFilledPtr {
 			// The currently-pointed-to file does not fit in any free space to its left;
 			// reset the free space pointer to the leftmost free space, and...
-			freeSpacePtr = lo.IndexOf(diskContents, lib.FreeSpaceIndicator)
+			freeSpacePtr = resetFreeSpacePtr(diskContents)
 			// ...advance the last-filled pointer to the last filled space prior to the start
 			// of the currently-pointed-to file.
-			_, lastFilledPtr, _ = lo.FindLastIndexOf(diskContents[:fileStart], occupiedPred)
+			lastFilledPtr = advanceLastFilledPtr(diskContents, fileInfo)
 			continue
 		}
 
@@ -71,23 +75,53 @@ func main() {
 		freeSpaceLength := nextFilled - freeSpacePtr
 
 		// Does the currently-pointed-to file fit in the free space?
-		if freeSpaceLength >= fileLength {
+		if freeSpaceLength >= fileInfo.Length {
 			// It does! Move it over, overwriting its original position with empties.
-			emptyRun := lib.RunOf(fileLength, lib.FreeSpaceIndicator)
-			copy(diskContents[freeSpacePtr:], diskContents[fileStart:fileEnd])
-			copy(diskContents[fileStart:], emptyRun)
+			moveFile(&diskContents, fileInfo, freeSpacePtr)
 			// Reset the free space pointer to the leftmost free space, and...
-			freeSpacePtr = lo.IndexOf(diskContents, lib.FreeSpaceIndicator)
+			freeSpacePtr = resetFreeSpacePtr(diskContents)
 			// ...advance the last-filled pointer to the last filled space prior to the start
 			// of the currently-pointed-to file. (Remember: we don't get to try a single file
 			// more than once; so whatever lastFilledPtr has moved across, shall never be
 			// revisited again!)
-			_, lastFilledPtr, _ = lo.FindLastIndexOf(diskContents[:fileStart], occupiedPred)
+			lastFilledPtr = advanceLastFilledPtr(diskContents, fileInfo)
 		} else {
+			// It doesn't fit; move the free space pointer to the next free space, and try again.
 			freeSpacePtr = nextFilled + lo.IndexOf(diskContents[nextFilled:], lib.FreeSpaceIndicator)
 		}
 	}
 
+	checkSum := calcChecksum(diskContents)
+
+	log.Printf("checksum: %s", checkSum.String())
+}
+
+func resetFreeSpacePtr(diskContents []int) int {
+	return lo.IndexOf(diskContents, lib.FreeSpaceIndicator)
+}
+
+func advanceLastFilledPtr(diskContents []int, fileInfo FileInfo) int {
+	_, lastFilledPtr, _ := lo.FindLastIndexOf(diskContents[:fileInfo.Start], occupiedPred)
+
+	return lastFilledPtr
+}
+
+func getFileInfo(diskContents []int, lastFilledPtr int) FileInfo {
+	currFileID := diskContents[lastFilledPtr]
+	_, fileStart, _ := lo.FindLastIndexOf(diskContents[:lastFilledPtr], generateAntiPred(currFileID))
+	fileStart++
+	fileEnd := lastFilledPtr + 1
+	fileLength := fileEnd - fileStart
+	return FileInfo{ID: currFileID, Length: fileLength, Start: fileStart, End: fileEnd}
+}
+
+func moveFile(diskContents *[]int, fileInfo FileInfo, freeSpacePtr int) {
+	emptyRun := lib.RunOf(fileInfo.Length, lib.FreeSpaceIndicator)
+	copy((*diskContents)[freeSpacePtr:], (*diskContents)[fileInfo.Start:fileInfo.End])
+	copy((*diskContents)[fileInfo.Start:], emptyRun)
+}
+
+func calcChecksum(diskContents []int) *big.Int {
 	checkSum := big.NewInt(0)
 	for i, val := range diskContents {
 		if val == lib.FreeSpaceIndicator {
@@ -95,6 +129,5 @@ func main() {
 		}
 		checkSum.Add(checkSum, big.NewInt(int64(i*val)))
 	}
-
-	log.Printf("checksum: %s", checkSum.String())
+	return checkSum
 }
