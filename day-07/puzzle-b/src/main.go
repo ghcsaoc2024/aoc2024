@@ -45,7 +45,7 @@ func main() {
 	var args struct {
 		InputFile  string  `arg:"positional,required" help:"input file"`
 		SweetSpot  float64 `arg:"positional,required" help:"sweet spot for meet-in-the-\"middle\""`
-		NumWorkers int     `arg:"-n,env:NUM_WORKERS"  default:"1"                                  help:"number of workers to use"`
+		NumWorkers int     `arg:"-n"                  default:"1"                                  help:"number of workers to use"`
 	}
 	arg.MustParse(&args)
 
@@ -54,7 +54,7 @@ func main() {
 	}
 
 	if args.NumWorkers < 1 || args.NumWorkers > MaxNumWorkers {
-		log.Fatalf("sweet spot must be at least 1 and no more than %d; got %d", MaxNumWorkers, args.NumWorkers)
+		log.Fatalf("number of workers must be at least 1 and no more than %d; got %d", MaxNumWorkers, args.NumWorkers)
 	}
 
 	file, err := os.Open(args.InputFile)
