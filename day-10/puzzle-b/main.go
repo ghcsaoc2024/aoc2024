@@ -14,7 +14,12 @@ type Args struct {
 	InputFile string `arg:"positional,required" help:"input file"`
 }
 
-var directions = []lib.Coord{{Row: 1, Col: 0}, {Row: 0, Col: 1}, {Row: 0, Col: -1}, {Row: -1, Col: 0}} //nolint:gochecknoglobals // Meant as a constant
+var directions = []lib.Coord{ //nolint:gochecknoglobals // Meant as a constant
+	{Row: 1, Col: 0},
+	{Row: 0, Col: 1},
+	{Row: 0, Col: -1},
+	{Row: -1, Col: 0},
+}
 
 func main() {
 	var args Args
