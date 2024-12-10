@@ -41,12 +41,14 @@ func worker(taskChan <-chan WorkerTask, resultsChan chan<- big.Int, wg *sync.Wai
 	}
 }
 
+type Args struct {
+	InputFile  string  `arg:"positional,required" help:"input file"`
+	SweetSpot  float64 `arg:"positional,required" help:"sweet spot for meet-in-the-\"middle\""`
+	NumWorkers int     `arg:"-n"                  default:"1"                                  help:"number of workers to use"`
+}
+
 func main() {
-	var args struct {
-		InputFile  string  `arg:"positional,required" help:"input file"`
-		SweetSpot  float64 `arg:"positional,required" help:"sweet spot for meet-in-the-\"middle\""`
-		NumWorkers int     `arg:"-n"                  default:"1"                                  help:"number of workers to use"`
-	}
+	var args Args
 	arg.MustParse(&args)
 
 	if args.SweetSpot <= 0 || args.SweetSpot >= 1 {

@@ -29,25 +29,15 @@ func generateAntiPred(val int) func(int) bool {
 	}
 }
 
+type Args struct {
+	InputFile string `arg:"positional,required" help:"input file"`
+}
+
 func main() {
-	var args struct {
-		InputFile string `arg:"positional,required" help:"input file"`
-	}
+	var args Args
 	arg.MustParse(&args)
 
-	file, err := os.Open(args.InputFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func(file *os.File) {
-		closeErr := file.Close()
-		if closeErr != nil {
-			log.Fatal(closeErr)
-		}
-	}(file)
-
-	scanner := bufio.NewScanner(file)
-	diskContents := lib.ReadInput(scanner)
+	diskContents := readInputFile(args)
 	log.Printf("length of disk: %d", len(diskContents))
 
 	freeSpacePtr := resetFreeSpacePtr(diskContents)
@@ -94,6 +84,24 @@ func main() {
 	checkSum := calcChecksum(diskContents)
 
 	log.Printf("checksum: %s", checkSum.String())
+}
+
+func readInputFile(args Args) []int {
+	file, err := os.Open(args.InputFile)
+	if err != nil {
+		log.Fatal(err) //nolint:revive // Toy code
+	}
+	defer func(file *os.File) {
+		closeErr := file.Close()
+		if closeErr != nil {
+			log.Fatal(closeErr) //nolint:revive // Toy code
+		}
+	}(file)
+
+	scanner := bufio.NewScanner(file)
+	diskContents := lib.ReadInput(scanner)
+
+	return diskContents
 }
 
 func resetFreeSpacePtr(diskContents []int) int {
