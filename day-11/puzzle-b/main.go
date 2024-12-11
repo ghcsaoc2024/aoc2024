@@ -14,6 +14,7 @@ import (
 const BaseTen = 10
 
 var MagicMultiplier = big.NewInt(2024) //nolint:gochecknoglobals,mnd // Meant as a constant.
+var One = big.NewInt(1)                //nolint:gochecknoglobals,mnd // Meant as a constant.
 
 type LaunchPoint struct {
 	Str            string
@@ -34,10 +35,10 @@ func main() {
 	}
 
 	values := readInputFile(args)
-	total := 0
-	expansionCache := make(map[LaunchPoint]int)
+	total := big.NewInt(0)
+	expansionCache := make(map[LaunchPoint]*big.Int)
 	for _, value := range values {
-		total += expandWithCache(value, args.NumSteps, &expansionCache)
+		total.Add(total, expandWithCache(value, args.NumSteps, &expansionCache))
 	}
 
 	log.Printf("total: %d", total)
@@ -61,7 +62,7 @@ func readInputFile(args Args) []*big.Int {
 	return values
 }
 
-func expandWithCache(value *big.Int, numSteps int, expansionCache *map[LaunchPoint]int) int {
+func expandWithCache(value *big.Int, numSteps int, expansionCache *map[LaunchPoint]*big.Int) *big.Int {
 	str := value.String()
 	if total, ok := (*expansionCache)[LaunchPoint{Str: str, RemainingDepth: numSteps}]; ok {
 		return total
@@ -73,29 +74,29 @@ func expandWithCache(value *big.Int, numSteps int, expansionCache *map[LaunchPoi
 	return total
 }
 
-func expand(value *big.Int, numSteps int, expansionCache *map[LaunchPoint]int) int {
-	str := value.String()
-	if total, ok := (*expansionCache)[LaunchPoint{Str: str, RemainingDepth: numSteps}]; ok {
-		return total
-	}
-
+func expand(value *big.Int, numSteps int, expansionCache *map[LaunchPoint]*big.Int) *big.Int {
 	if numSteps < 1 {
-		return 1
+		return One
 	}
 
 	if value.Sign() == 0 {
-		value.SetInt64(1)
-		return expandWithCache(value, numSteps-1, expansionCache)
+		return expandWithCache(One, numSteps-1, expansionCache)
 	}
 
+	newValue := big.NewInt(0)
+	newValue.Set(value)
+	value = newValue
+
+	str := value.String()
 	strLen := len(str)
 	if strLen%2 == 0 {
 		firstHalf := str[:strLen/2]
 		secondHalf := str[strLen/2:]
 		value.SetString(firstHalf, BaseTen)
-		firstTotal := expandWithCache(value, numSteps-1, expansionCache)
+		total := big.NewInt(0)
+		total.Set(expandWithCache(value, numSteps-1, expansionCache))
 		value.SetString(secondHalf, BaseTen)
-		return firstTotal + expandWithCache(value, numSteps-1, expansionCache)
+		return total.Add(total, expandWithCache(value, numSteps-1, expansionCache))
 	}
 
 	value.Mul(value, MagicMultiplier)
