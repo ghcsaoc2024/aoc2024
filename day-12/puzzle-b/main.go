@@ -130,7 +130,7 @@ func expand(board *[][]lib.Cell, dimensions, startingCoord lib.Coord, allCoords 
 		}
 	}
 
-	totalCorners := convexCorners
+	totalCorners := selfCorners + convexCorners
 	totalArea := 1
 	for iDir, dir := range lib.Directions {
 		if cell.Boundaries[iDir] {
@@ -150,7 +150,7 @@ func expand(board *[][]lib.Cell, dimensions, startingCoord lib.Coord, allCoords 
 		totalArea += subArea
 	}
 
-	return totalArea, totalCorners + selfCorners
+	return totalArea, totalCorners
 }
 
 func readInputFile(args Args) [][]lib.Cell {
