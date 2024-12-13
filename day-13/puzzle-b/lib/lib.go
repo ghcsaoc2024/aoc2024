@@ -3,46 +3,52 @@ package lib
 import (
 	"bufio"
 	"fmt"
+	"math/big"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
+const BaseTen = 10
+
 type Coord struct {
-	Row int64
-	Col int64
+	Row *big.Int
+	Col *big.Int
 }
 
 func (c Coord) Add(other Coord) Coord {
 	return Coord{
-		Row: c.Row + other.Row,
-		Col: c.Col + other.Col,
+		Row: big.NewInt(0).Add(c.Row, other.Row),
+		Col: big.NewInt(0).Add(c.Col, other.Col),
 	}
 }
 
 func (c Coord) Sub(other Coord) Coord {
 	return Coord{
-		Row: c.Row - other.Row,
-		Col: c.Col - other.Col,
+		Row: big.NewInt(0).Sub(c.Row, other.Row),
+		Col: big.NewInt(0).Sub(c.Col, other.Col),
 	}
 }
 
-func (c Coord) Mul(scalar int64) Coord {
+func (c Coord) Mul(scalar *big.Int) Coord {
 	return Coord{
-		Row: c.Row * scalar,
-		Col: c.Col * scalar,
+		Row: big.NewInt(0).Mul(c.Row, scalar),
+		Col: big.NewInt(0).Mul(c.Col, scalar),
 	}
 }
 
-func GCD(a, b int64) int64 {
-	for b != 0 {
-		a, b = b, a%b
+func GCD(a, b *big.Int) *big.Int {
+	for b.Sign() != 0 {
+		a, b = b, big.NewInt(0).Mod(a, b)
 	}
-	return a
+	return big.NewInt(0).Set(a)
 }
 
-func LCM(a, b int64) int64 {
-	return a * b / GCD(a, b)
+func LCM(a, b *big.Int) *big.Int {
+	gcd := GCD(a, b)
+	result := big.NewInt(0).Mul(a, b)
+	result = result.Quo(result, gcd)
+
+	return result
 }
 
 type Machine struct {
@@ -52,8 +58,8 @@ type Machine struct {
 }
 
 type Prices struct {
-	A int64
-	B int64
+	A *big.Int
+	B *big.Int
 }
 
 func ReadInput(scanner *bufio.Scanner) ([]Machine, error) {
@@ -79,31 +85,44 @@ Prize: X=([1-9][0-9]*), Y=([1-9][0-9]*)`
 		if len(match) != 7 { //nolint:mnd // Regexp-dependent, check is for internal error.
 			return nil, fmt.Errorf("internal error: unexpected number of matches: %v", len(match))
 		}
-		var err error
-		machine.ButtonA.Row, err = strconv.ParseInt(match[1], 10, 64)
-		if err != nil {
+		var ok bool
+		var value *big.Int
+		value = big.NewInt(0)
+		value, ok = value.SetString(match[1], BaseTen)
+		if !ok {
 			return nil, fmt.Errorf("internal error: failed to convert button A row: %w (input string: `%v`)", err, match[1])
 		}
-		machine.ButtonA.Col, err = strconv.ParseInt(match[2], 10, 64)
-		if err != nil {
+		machine.ButtonA.Row = value
+		value = big.NewInt(0)
+		value, ok = value.SetString(match[2], BaseTen)
+		if !ok {
 			return nil, fmt.Errorf("internal error: failed to convert button A col: %w (input string: `%v`)", err, match[2])
 		}
-		machine.ButtonB.Row, err = strconv.ParseInt(match[3], 10, 64)
-		if err != nil {
+		machine.ButtonA.Col = value
+		value = big.NewInt(0)
+		value, ok = value.SetString(match[3], BaseTen)
+		if !ok {
 			return nil, fmt.Errorf("internal error: failed to convert button B row: %w (input string: `%v`)", err, match[3])
 		}
-		machine.ButtonB.Col, err = strconv.ParseInt(match[4], 10, 64)
-		if err != nil {
+		machine.ButtonB.Row = value
+		value = big.NewInt(0)
+		value, ok = value.SetString(match[4], BaseTen)
+		if !ok {
 			return nil, fmt.Errorf("internal error: failed to convert button B col: %w (input string: `%v`)", err, match[4])
 		}
-		machine.PrizeLoc.Row, err = strconv.ParseInt(match[5], 10, 64)
-		if err != nil {
+		machine.ButtonB.Col = value
+		value = big.NewInt(0)
+		value, ok = value.SetString(match[5], BaseTen)
+		if !ok {
 			return nil, fmt.Errorf("internal error: failed to convert prize row: %w (input string: `%v`)", err, match[5])
 		}
-		machine.PrizeLoc.Col, err = strconv.ParseInt(match[6], 10, 64)
-		if err != nil {
+		machine.PrizeLoc.Row = value
+		value = big.NewInt(0)
+		value, ok = value.SetString(match[6], BaseTen)
+		if !ok {
 			return nil, fmt.Errorf("internal error: failed to convert prize col: %w (input string: `%v`)", err, match[6])
 		}
+		machine.PrizeLoc.Col = value
 		machines = append(machines, machine)
 	}
 

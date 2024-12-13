@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"main/lib"
+	"math/big"
 	"os"
 
 	"github.com/alexflint/go-arg"
@@ -24,72 +25,80 @@ func main() {
 
 	log.Printf("%d machines read", len(machines))
 
-	totalPrice := int64(0)
-	bump := lib.Coord{Row: 10000000000000, Col: 10000000000000} //nolint:mnd // From puzzle
+	totalPrice := big.NewInt(0)
+	bumpSum, ok := big.NewInt(0).SetString("10000000000000", lib.BaseTen)
+	if !ok {
+		log.Panic("internal error: could not set big.Int to bumpSum string")
+	}
+	bump := lib.Coord{
+		Row: big.NewInt(0).Set(bumpSum),
+		Col: big.NewInt(0).Set(bumpSum),
+	}
 	for iMachine, machine := range machines {
 		machine.PrizeLoc = machine.PrizeLoc.Add(bump)
 
 		lcmA := lib.LCM(machine.ButtonA.Row, machine.ButtonA.Col)
-		rowMulA := lcmA / machine.ButtonA.Row
-		colMulA := lcmA / machine.ButtonA.Col
+		rowMulA := big.NewInt(0).Quo(lcmA, machine.ButtonA.Row)
+		colMulA := big.NewInt(0).Quo(lcmA, machine.ButtonA.Col)
 
-		newMulRowB := rowMulA * machine.ButtonB.Row
-		newMulColB := colMulA * machine.ButtonB.Col
-		newPrizeLoc := lib.Coord{Row: machine.PrizeLoc.Row * rowMulA, Col: machine.PrizeLoc.Col * colMulA}
-		mulDiffB := newMulColB - newMulRowB
-		prizeLocDiffB := newPrizeLoc.Col - newPrizeLoc.Row
-		priceA := int64(-1)
-		if prizeLocDiffB%mulDiffB == 0 {
-			numB := prizeLocDiffB / mulDiffB
+		newMulRowB := big.NewInt(0).Mul(rowMulA, machine.ButtonB.Row)
+		newMulColB := big.NewInt(0).Mul(colMulA, machine.ButtonB.Col)
+
+		newPrizeLoc := lib.Coord{
+			Row: big.NewInt(0).Mul(machine.PrizeLoc.Row, rowMulA),
+			Col: big.NewInt(0).Mul(machine.PrizeLoc.Col, colMulA),
+		}
+		mulDiffB := big.NewInt(0).Sub(newMulColB, newMulRowB)
+		prizeLocDiffB := big.NewInt(0).Sub(newPrizeLoc.Col, newPrizeLoc.Row)
+		var priceA *big.Int
+
+		if big.NewInt(0).Mod(prizeLocDiffB, mulDiffB).Sign() == 0 {
+			numB := big.NewInt(0).Quo(prizeLocDiffB, mulDiffB)
 			locB := machine.ButtonB.Mul(numB)
 			diff := machine.PrizeLoc.Sub(locB)
-			if diff.Row/machine.ButtonA.Row != diff.Col/machine.ButtonA.Col {
+			if big.NewInt(0).Quo(diff.Row, machine.ButtonA.Row).Cmp(big.NewInt(0).Quo(diff.Col, machine.ButtonA.Col)) != 0 {
 				log.Panic("internal error: the math isn't mathing (the quotients are unequal)")
 			}
-			numA := diff.Row / machine.ButtonA.Row
-			priceA = numA*3 + numB*1
+			numA := big.NewInt(0).Quo(diff.Row, machine.ButtonA.Row)
+			priceA = big.NewInt(0).Add(big.NewInt(0).Mul(numA, big.NewInt(3)), numB)
 		}
 
 		lcmB := lib.LCM(machine.ButtonB.Row, machine.ButtonB.Col)
-		rowMulB := lcmB / machine.ButtonB.Row
-		colMulB := lcmB / machine.ButtonB.Col
+		rowMulB := big.NewInt(0).Quo(lcmB, machine.ButtonB.Row)
+		colMulB := big.NewInt(0).Quo(lcmB, machine.ButtonB.Col)
 
-		newMulRowA := rowMulB * machine.ButtonA.Row
-		newMulColA := colMulB * machine.ButtonA.Col
-		newPrizeLoc = lib.Coord{Row: machine.PrizeLoc.Row * rowMulB, Col: machine.PrizeLoc.Col * colMulB}
-		mulDiffA := newMulColA - newMulRowA
-		prizeLocDiffA := newPrizeLoc.Col - newPrizeLoc.Row
-		priceB := int64(-1)
-		if prizeLocDiffA%mulDiffA == 0 {
-			numA := prizeLocDiffA / mulDiffA
+		newMulRowA := big.NewInt(0).Mul(rowMulB, machine.ButtonA.Row)
+		newMulColA := big.NewInt(0).Mul(colMulB, machine.ButtonA.Col)
+
+		newPrizeLoc = lib.Coord{
+			Row: big.NewInt(0).Mul(machine.PrizeLoc.Row, rowMulB),
+			Col: big.NewInt(0).Mul(machine.PrizeLoc.Col, colMulB),
+		}
+		mulDiffA := big.NewInt(0).Sub(newMulColA, newMulRowA)
+		prizeLocDiffA := big.NewInt(0).Sub(newPrizeLoc.Col, newPrizeLoc.Row)
+		var priceB *big.Int
+
+		if big.NewInt(0).Mod(prizeLocDiffA, mulDiffA).Sign() == 0 {
+			numA := big.NewInt(0).Quo(prizeLocDiffA, mulDiffA)
 			locA := machine.ButtonA.Mul(numA)
 			diff := machine.PrizeLoc.Sub(locA)
-			if diff.Row/machine.ButtonB.Row != diff.Col/machine.ButtonB.Col {
+			if big.NewInt(0).Quo(diff.Row, machine.ButtonB.Row).Cmp(big.NewInt(0).Quo(diff.Col, machine.ButtonB.Col)) != 0 {
 				log.Panic("internal error: the math isn't mathing (the quotients are unequal)")
 			}
-			numB := diff.Row / machine.ButtonB.Row
-			priceB = numA*3 + numB*1
+			numB := big.NewInt(0).Quo(diff.Row, machine.ButtonB.Row)
+			priceB = big.NewInt(0).Add(big.NewInt(0).Mul(numA, big.NewInt(3)), numB)
 		}
 
-		if priceA != priceB {
+		if (priceA != priceB) && (priceA == nil || priceB == nil || priceA.Cmp(priceB) != 0) {
 			log.Panicf("internal error: the math isn't mathing (priceA: %d, priceB: %d)", priceA, priceB)
 		}
 
-		var price int64
-		switch {
-		case priceA < 0 && priceB < 0:
-
+		if priceA == nil {
 			log.Printf("machine %d: not solvable", iMachine)
 			continue
-		case priceA < 0:
-			price = priceB
-		case priceB < 0:
-			price = priceA
-		default:
-			price = min(priceA, priceB)
 		}
-		log.Printf("machine %d: solvable; price: %d", iMachine, price)
-		totalPrice += price
+		log.Printf("machine %d: solvable; price: %d", iMachine, priceA)
+		totalPrice = totalPrice.Add(totalPrice, priceA)
 	}
 
 	log.Printf("total price: %d", totalPrice)
