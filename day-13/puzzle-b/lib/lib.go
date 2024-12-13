@@ -34,51 +34,6 @@ func (c Coord) Mul(scalar int64) Coord {
 	}
 }
 
-func (c Coord) Div(scalar int64) Coord {
-	return Coord{
-		Row: c.Row / scalar,
-		Col: c.Col / scalar,
-	}
-}
-
-func (c Coord) Mod(scalar int64) Coord {
-	return Coord{
-		Row: c.Row % scalar,
-		Col: c.Col % scalar,
-	}
-}
-
-func (c Coord) MulOther(other Coord) Coord {
-	return Coord{
-		Row: c.Row * other.Row,
-		Col: c.Col * other.Col,
-	}
-}
-
-func (c Coord) DivOther(other Coord) Coord {
-	return Coord{
-		Row: c.Row / other.Row,
-		Col: c.Col / other.Col,
-	}
-}
-
-func (c Coord) ModOther(other Coord) Coord {
-	return Coord{
-		Row: c.Row % other.Row,
-		Col: c.Col % other.Col,
-	}
-}
-
-func (c Coord) IsValid(dimensions Coord) bool {
-	if c.Row < 0 || c.Row >= dimensions.Row {
-		return false
-	}
-	if c.Col < 0 || c.Col >= dimensions.Col {
-		return false
-	}
-	return true
-}
-
 func GCD(a, b int64) int64 {
 	for b != 0 {
 		a, b = b, a%b
