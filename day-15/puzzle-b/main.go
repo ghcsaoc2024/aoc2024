@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"cmp"
 	"fmt"
 	"log"
 	"os"
@@ -73,7 +72,7 @@ func main() {
 	log.Printf("total score: %d", totalScore)
 }
 
-func execPush(game *lib.Game, dimensions, move, pushDest lib.Coord, boxesToPush *set.Set[int]) error {
+func execPush(game *lib.Game, dimensions, move, pushDest lib.Coord, boxesToPush []int) error {
 	if move.Row != 0 {
 		return execPushVert(game, dimensions, move, pushDest, boxesToPush)
 	}
@@ -81,7 +80,7 @@ func execPush(game *lib.Game, dimensions, move, pushDest lib.Coord, boxesToPush 
 	return execPushHoriz(game, dimensions, move, pushDest, boxesToPush)
 }
 
-func execPushHoriz(game *lib.Game, dimensions, move, pushDest lib.Coord, _ *set.Set[int]) error {
+func execPushHoriz(game *lib.Game, dimensions, move, pushDest lib.Coord, _ []int) error {
 	for {
 		curCell := &game.Board[pushDest.Row][pushDest.Col]
 		nextCoords := pushDest.Sub(move)
@@ -109,12 +108,9 @@ func execPushHoriz(game *lib.Game, dimensions, move, pushDest lib.Coord, _ *set.
 	}
 }
 
-func execPushVert(game *lib.Game, _, move, _ lib.Coord, boxesToPush *set.Set[int]) error {
-	boxesSlice := boxesToPush.Slice()
-	slices.SortFunc(boxesSlice, func(i, j int) int {
-		return cmp.Compare(game.Boxes[i].Row, game.Boxes[j].Row) * -move.Row
-	})
-	for _, iBox := range boxesSlice {
+func execPushVert(game *lib.Game, _, move, _ lib.Coord, boxesToPush []int) error {
+	slices.Reverse(boxesToPush)
+	for _, iBox := range boxesToPush {
 		coord := game.Boxes[iBox]
 		if err := moveBoxVert(game, coord, coord.Add(move)); err != nil {
 			return err
@@ -145,7 +141,7 @@ func moveBoxVert(game *lib.Game, nextCoords lib.Coord, newCoords lib.Coord) erro
 	return nil
 }
 
-func evalPush(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, *set.Set[int], bool) {
+func evalPush(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, []int, bool) {
 	if move.Row != 0 {
 		return evalPushVert(game, dimensions, move)
 	}
@@ -153,7 +149,7 @@ func evalPush(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, 
 	return evalPushHoriz(game, dimensions, move)
 }
 
-func evalPushHoriz(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, *set.Set[int], bool) {
+func evalPushHoriz(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, []int, bool) {
 	for nextCoords := game.Robot.Add(move); nextCoords.IsValid(dimensions); nextCoords = nextCoords.Add(move) {
 		nextCell := &game.Board[nextCoords.Row][nextCoords.Col]
 		switch *nextCell {
@@ -169,24 +165,24 @@ func evalPushHoriz(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Co
 	return nil, nil, false
 }
 
-func evalPushVert(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, *set.Set[int], bool) {
+func evalPushVert(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coord, []int, bool) {
 	nextCoords := game.Robot.Add(move)
 	nextCell := &game.Board[nextCoords.Row][nextCoords.Col]
-	lastRowBoxes := set.New[int](1)
+	lastRowBoxes := make([]int, 1)
 	switch *nextCell { //nolint:exhaustive // has default
 	case lib.BoxL:
-		lastRowBoxes.Insert(game.BoxesByCoord[nextCoords])
+		lastRowBoxes[0] = game.BoxesByCoord[nextCoords]
 	case lib.BoxR:
-		lastRowBoxes.Insert(game.BoxesByCoord[lib.Coord{Row: nextCoords.Row, Col: nextCoords.Col - 1}])
+		lastRowBoxes[0] = game.BoxesByCoord[lib.Coord{Row: nextCoords.Row, Col: nextCoords.Col - 1}]
 	default:
 		log.Panicf("internal error: unexpected cell type %v while evaluating first row of vert-push", *nextCell) //nolint:revive // Toy code
 	}
 
-	boxesToMove := set.New[int](1)
+	boxesToMove := make([]int, 0, 1)
 	for nextCoords = nextCoords.Add(move); nextCoords.IsValid(dimensions); nextCoords = nextCoords.Add(move) {
-		boxesToMove.InsertSet(lastRowBoxes)
+		boxesToMove = append(boxesToMove, lastRowBoxes...)
 		nextRowBoxes := set.New[int](0)
-		for iBox := range lastRowBoxes.Items() {
+		for _, iBox := range lastRowBoxes {
 			box := game.Boxes[iBox]
 			boxShadowCoordL := box.Add(move)
 			boxShadowCoordR := lib.Coord{Row: boxShadowCoordL.Row, Col: box.Col + 1}
@@ -209,11 +205,12 @@ func evalPushVert(game lib.Game, dimensions lib.Coord, move lib.Coord) (*lib.Coo
 				nextRowBoxes.Insert(game.BoxesByCoord[boxShadowCoordL])
 			}
 		}
+
 		if nextRowBoxes.Empty() {
 			return &nextCoords, boxesToMove, true
 		}
 
-		lastRowBoxes = nextRowBoxes
+		lastRowBoxes = nextRowBoxes.Slice()
 	}
 
 	return nil, nil, false
