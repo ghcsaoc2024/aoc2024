@@ -28,8 +28,8 @@ func main() {
 	}
 
 	log.Printf("maze dimensions: %v", maze.Dimensions)
-	log.Printf("starting coord: %v", maze.Start)
-	log.Printf("ending coord: %v", maze.End)
+	log.Printf("starting coord: %v", *maze.Start)
+	log.Printf("ending coord: %v", *maze.End)
 	log.Printf("current cursor: %v", maze.Cursor)
 
 	bestCostByCursor := make(map[lib.Cursor]lib.Cost)
