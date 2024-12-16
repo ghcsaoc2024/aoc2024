@@ -7,13 +7,12 @@ import (
 	"os"
 
 	"github.com/alexflint/go-arg"
+	"github.com/samber/lo"
 )
 
 type Args struct {
 	InputFile string `arg:"positional,required" help:"input file"`
 }
-
-const TurnCost = 1000
 
 func main() {
 	var args Args
@@ -29,65 +28,51 @@ func main() {
 	log.Printf("ending coord: %v", maze.End)
 	log.Printf("current cursor: %v", maze.Cursor)
 
-	budget := lib.Cost(1)
-	states := []lib.Maze{*maze}
-	for {
-		log.Printf("budget: %d, len(states): %d", budget, len(states))
-		states = traverse(states, budget)
-		if len(states) == 0 {
-			log.Printf("no solution found")
-			break
-		}
+	bestPaths := make(map[lib.Cursor]lib.Cost)
+	cost := traverse(*maze, bestPaths)
 
-		if states[0].Solved {
-			log.Printf("solution found; cost: %d", states[0].Cost)
-			break
-		}
-
-		budget += 1000
-	}
+	log.Printf("cost: %d", cost)
 }
 
-func traverse(states []lib.Maze, budget lib.Cost) []lib.Maze {
-	returnStates := make([]lib.Maze, 0, len(states))
-	var winner *lib.Maze
-	for _, maze := range states {
-		c := lib.Coord{Row: maze.Cursor.Row, Col: maze.Cursor.Col}
-		if c == *maze.End {
-			maze.Solved = true
-			return []lib.Maze{maze}
-		}
+func traverse(state lib.Maze, bestPaths map[lib.Cursor]lib.Cost) lib.Cost {
+	cheapest, ok := bestPaths[state.Cursor]
+	if ok && cheapest <= state.Cost {
+		return -1
+	}
 
-		if maze.Cost >= budget {
-			returnStates = append(returnStates, maze)
+	bestPaths[state.Cursor] = state.Cost
+	if state.Cursor.Coord == *state.End {
+		endCursors := lo.Map(lib.Directions, func(dir lib.Coord, _ int) lib.Cursor {
+			return lib.Cursor{Coord: state.Cursor.Coord, Dir: dir}
+		})
+		successfulEndCursors := lo.Filter(endCursors, func(c lib.Cursor, _ int) bool {
+			_, ok := bestPaths[c]
+			return ok
+		})
+		costs := lo.Map(successfulEndCursors, func(c lib.Cursor, _ int) lib.Cost {
+			return bestPaths[c]
+		})
+
+		return lo.Min(costs)
+	}
+
+	costs := make([]lib.Cost, 0, len(lib.Moves))
+	for _, move := range lib.Moves {
+		if !move.Precondition(state) {
 			continue
 		}
 
-		for _, move := range lib.Moves {
-			if !move.Precondition(maze) {
-				continue
-			}
-			localStates := traverse([]lib.Maze{move.Func(maze)}, budget)
-			if len(localStates) > 0 && localStates[0].Solved {
-				if winner == nil || localStates[0].Cost < winner.Cost {
-					winner = &localStates[0]
-				}
-				continue
-			}
-
-			if winner != nil {
-				continue
-			}
-
-			returnStates = append(returnStates, localStates...)
+		cost := traverse(move.Func(state), bestPaths)
+		if cost > 0 {
+			costs = append(costs, cost)
 		}
 	}
 
-	if winner != nil {
-		return []lib.Maze{*winner}
+	if len(costs) < 1 {
+		return -1
 	}
 
-	return returnStates
+	return lo.Min(costs)
 }
 
 func readInputFile(args Args) (*lib.Maze, error) {

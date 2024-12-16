@@ -52,7 +52,14 @@ func (c Coord) IsValid(dimensions Coord) bool {
 	return true
 }
 
-var StartDirection = Coord{Row: 0, Col: 1} //nolint:gochecknoglobals // Meant as a constant
+var Directions = []Coord{ //nolint:gochecknoglobals // Meant as a constant
+	{Row: 0, Col: 1},
+	{Row: 1, Col: 0},
+	{Row: 0, Col: -1},
+	{Row: -1, Col: 0},
+}
+
+var StartDirection = Directions[0] //nolint:gochecknoglobals // Meant as a constant
 
 type Cell int
 
@@ -78,21 +85,26 @@ type Maze struct {
 	Solved     bool
 }
 
+const (
+	ForwardCost = 1
+	TurnCost    = 1000
+)
+
 func Forward(m Maze) Maze {
 	m.Cursor.Coord = m.Cursor.Coord.Add(m.Cursor.Dir)
-	m.Cost += 1
+	m.Cost += ForwardCost
 	return m
 }
 
 func TurnRight(m Maze) Maze {
 	m.Cursor.Dir = m.Cursor.Dir.TurnRight()
-	m.Cost += 1000
+	m.Cost += TurnCost
 	return m
 }
 
 func TurnLeft(m Maze) Maze {
 	m.Cursor.Dir = m.Cursor.Dir.TurnLeft()
-	m.Cost += 1000
+	m.Cost += TurnCost
 	return m
 }
 
@@ -101,9 +113,10 @@ type MoveFunc func(Maze) Maze
 type Move struct {
 	Precondition func(Maze) bool
 	Func         MoveFunc
+	Cost         Cost
 }
 
-func alwaysTruePrecondition(_ Maze) bool {
+func turnPrecondition(_ Maze) bool {
 	return true
 }
 
@@ -121,9 +134,9 @@ func forwardPrecondition(maze Maze) bool {
 }
 
 var Moves = []Move{ //nolint:gochecknoglobals // Meant as a constant
-	{forwardPrecondition, Forward},
-	{alwaysTruePrecondition, TurnRight},
-	{alwaysTruePrecondition, TurnLeft},
+	{forwardPrecondition, Forward, ForwardCost},
+	{turnPrecondition, TurnRight, TurnCost},
+	{turnPrecondition, TurnLeft, TurnCost},
 }
 
 func ReadInput(scanner *bufio.Scanner) (*Maze, error) {
