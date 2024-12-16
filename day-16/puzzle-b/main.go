@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"main/lib"
+	"math"
 	"os"
 
 	"github.com/alexflint/go-arg"
@@ -12,7 +13,8 @@ import (
 )
 
 type Args struct {
-	InputFile string `arg:"positional,required" help:"input file"`
+	InputFile          string  `arg:"positional,required" help:"input file"`
+	CutoffGrowthFactor float64 `arg:"-f,--growth-factor"  default:"1.1"     help:"cutoff growth factor"`
 }
 
 const NothingFound = lib.Cost(-1)
@@ -35,9 +37,9 @@ func main() {
 	bestCostByCursor := make(map[lib.Cursor]lib.Cost)
 
 	bestCost := CutoffReached
-	for cutoff := lib.Cost(1); bestCost == CutoffReached; cutoff *= 2 {
+	for cutoff := float64(1); bestCost == CutoffReached; cutoff *= args.CutoffGrowthFactor {
 		log.Printf("attempting traversal with cutoff: %v", cutoff)
-		cost := traverse(*maze, bestCostByCursor, cutoff)
+		cost := traverse(*maze, bestCostByCursor, lib.Cost(math.Round(cutoff)))
 		if cost > 0 {
 			bestCost = cost
 		}
