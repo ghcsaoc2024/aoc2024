@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 type Coord struct {
@@ -83,6 +85,7 @@ type Maze struct {
 	Dimensions Coord
 	Cost       Cost
 	Solved     bool
+	EndCursors []Cursor
 }
 
 const (
@@ -182,6 +185,10 @@ func ReadInput(scanner *bufio.Scanner) (*Maze, error) {
 	maze.Cursor = Cursor{*maze.Start, StartDirection}
 	maze.Cost = 0
 	maze.Solved = false
+
+	maze.EndCursors = lo.Map(Directions, func(dir Coord, _ int) Cursor {
+		return Cursor{Coord: *maze.End, Dir: dir}
+	})
 
 	return maze, nil
 }

@@ -15,6 +15,9 @@ type Args struct {
 	InputFile string `arg:"positional,required" help:"input file"`
 }
 
+const NothingFound = lib.Cost(-1)
+const CutoffReached = lib.Cost(-2)
+
 func main() {
 	var args Args
 	arg.MustParse(&args)
@@ -30,67 +33,34 @@ func main() {
 	log.Printf("current cursor: %v", maze.Cursor)
 
 	bestCostByCursor := make(map[lib.Cursor]lib.Cost)
-	cost := traverse(*maze, bestCostByCursor)
 
-	log.Printf("phase 1 complete; best cost: %d", cost)
+	bestCost := CutoffReached
+	for cutoff := lib.Cost(1); bestCost == CutoffReached; cutoff *= 2 {
+		log.Printf("attempting traversal with cutoff: %v", cutoff)
+		cost := traverse(*maze, bestCostByCursor, cutoff)
+		if cost > 0 {
+			bestCost = cost
+		}
+	}
+
+	log.Printf("phase 1 complete; bestCost: %d", bestCost)
 
 	goodSeats := findGoodSeats(*maze, bestCostByCursor)
 	log.Printf("good seats: %d", goodSeats.Size())
 }
 
-func traverse(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) lib.Cost {
-	cheapest, ok := bestCostByCursor[state.Cursor]
-	if ok && cheapest <= state.Cost {
-		return -1
+func traverse(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost, costCutoff lib.Cost) lib.Cost {
+	if costCutoff > 0 && state.Cost >= costCutoff {
+		return CutoffReached
 	}
 
-	bestCostByCursor[state.Cursor] = state.Cost
-	if state.Cursor.Coord == *state.End {
-		endCursors := lo.Map(lib.Directions, func(dir lib.Coord, _ int) lib.Cursor {
-			return lib.Cursor{Coord: state.Cursor.Coord, Dir: dir}
-		})
-		successfulEndCursors := lo.Filter(endCursors, func(c lib.Cursor, _ int) bool {
-			_, ok := bestCostByCursor[c]
-			return ok
-		})
-		costs := lo.Map(successfulEndCursors, func(c lib.Cursor, _ int) lib.Cost {
-			return bestCostByCursor[c]
-		})
-
-		return lo.Min(costs)
-	}
-
-	costs := make([]lib.Cost, 0, len(lib.Moves))
-	for _, move := range lib.Moves {
-		if !move.Precondition(state) {
-			continue
-		}
-
-		cost := traverse(move.Func(state), bestCostByCursor)
-		if cost > 0 {
-			costs = append(costs, cost)
-		}
-	}
-
-	if len(costs) < 1 {
-		return -1
-	}
-
-	return lo.Min(costs)
-}
-
-func findGoodSeats(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) *set.Set[lib.Coord] {
 	cheapest, ok := bestCostByCursor[state.Cursor]
 	if ok && cheapest < state.Cost {
-		return nil
+		return NothingFound
 	}
 
-	bestCostByCursor[state.Cursor] = state.Cost
 	if state.Cursor.Coord == *state.End {
-		endCursors := lo.Map(lib.Directions, func(dir lib.Coord, _ int) lib.Cursor {
-			return lib.Cursor{Coord: state.Cursor.Coord, Dir: dir}
-		})
-		successfulEndCursors := lo.Filter(endCursors, func(c lib.Cursor, _ int) bool {
+		successfulEndCursors := lo.Filter(state.EndCursors, func(c lib.Cursor, _ int) bool {
 			_, ok := bestCostByCursor[c]
 			return ok
 		})
@@ -99,8 +69,55 @@ func findGoodSeats(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) *se
 		})
 
 		cheapest = lo.Min(costs)
-		if cheapest == state.Cost {
-			log.Printf("found a new path to cheapest cost: %d", cheapest)
+		if state.Cost < cheapest || len(costs) < 1 {
+			cheapest = state.Cost
+			log.Printf("new cheapest threshold: %v", cheapest)
+			bestCostByCursor[state.Cursor] = cheapest
+		}
+
+		return cheapest
+	}
+
+	bestCostByCursor[state.Cursor] = state.Cost
+	costs := make([]lib.Cost, 0, len(lib.Moves))
+	for _, move := range lib.Moves {
+		if !move.Precondition(state) {
+			continue
+		}
+
+		cost := traverse(move.Func(state), bestCostByCursor, costCutoff)
+		costs = append(costs, cost)
+	}
+
+	realCosts := lo.Filter(costs, func(c lib.Cost, _ int) bool {
+		return c > 0
+	})
+	if len(realCosts) == 0 {
+		return lo.Min(costs)
+	}
+
+	return lo.Min(realCosts)
+}
+
+func findGoodSeats(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) *set.Set[lib.Coord] {
+	cheapest, ok := bestCostByCursor[state.Cursor]
+	if ok && cheapest < state.Cost {
+		return nil
+	}
+
+	if state.Cursor.Coord == *state.End {
+		successfulEndCursors := lo.Filter(state.EndCursors, func(c lib.Cursor, _ int) bool {
+			_, ok := bestCostByCursor[c]
+			return ok
+		})
+		costs := lo.Map(successfulEndCursors, func(c lib.Cursor, _ int) lib.Cost {
+			return bestCostByCursor[c]
+		})
+
+		cheapest = costs[0]
+		if state.Cost == cheapest {
+			log.Printf("found a path (cost: %v)", cheapest)
+			bestCostByCursor[state.Cursor] = cheapest
 			goodSeats := set.New[lib.Coord](1)
 			goodSeats.Insert(state.Cursor.Coord)
 			return goodSeats
@@ -109,6 +126,7 @@ func findGoodSeats(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) *se
 		return nil
 	}
 
+	bestCostByCursor[state.Cursor] = state.Cost
 	var goodSeats *set.Set[lib.Coord]
 	for _, move := range lib.Moves {
 		if !move.Precondition(state) {
