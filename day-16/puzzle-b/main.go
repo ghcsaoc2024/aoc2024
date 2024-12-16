@@ -44,6 +44,9 @@ func main() {
 	}
 
 	log.Printf("phase 1 complete; bestCost: %d", bestCost)
+	for _, cursor := range maze.EndCursors {
+		bestCostByCursor[cursor] = bestCost
+	}
 
 	goodSeats := findGoodSeats(*maze, bestCostByCursor)
 	log.Printf("good seats: %d", goodSeats.Size())
@@ -106,15 +109,7 @@ func findGoodSeats(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) *se
 	}
 
 	if state.Cursor.Coord == *state.End {
-		successfulEndCursors := lo.Filter(state.EndCursors, func(c lib.Cursor, _ int) bool {
-			_, ok := bestCostByCursor[c]
-			return ok
-		})
-		costs := lo.Map(successfulEndCursors, func(c lib.Cursor, _ int) lib.Cost {
-			return bestCostByCursor[c]
-		})
-
-		cheapest = costs[0]
+		cheapest = bestCostByCursor[state.Cursor]
 		if state.Cost == cheapest {
 			log.Printf("found a path (cost: %v)", cheapest)
 			bestCostByCursor[state.Cursor] = cheapest
