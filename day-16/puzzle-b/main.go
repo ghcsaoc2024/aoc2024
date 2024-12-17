@@ -4,21 +4,18 @@ import (
 	"bufio"
 	"log"
 	"main/lib"
-	"math"
 	"os"
 
 	"github.com/alexflint/go-arg"
 	"github.com/hashicorp/go-set/v3"
-	"github.com/samber/lo"
+	pq "gopkg.in/dnaeon/go-priorityqueue.v1"
 )
 
 type Args struct {
-	InputFile          string  `arg:"positional,required" help:"input file"`
-	CutoffGrowthFactor float64 `arg:"-f,--growth-factor"  default:"1.1"     help:"cutoff growth factor"`
+	InputFile string `arg:"positional,required" help:"input file"`
 }
 
 const NothingFound = lib.Cost(-1)
-const CutoffReached = lib.Cost(-2)
 
 func main() {
 	var args Args
@@ -34,117 +31,93 @@ func main() {
 	log.Printf("ending coord: %v", *maze.End)
 	log.Printf("current cursor: %v", maze.Cursor)
 
+	bestPrice, nGoodSeats := traverse(*maze)
+	log.Printf("best cost: %d", bestPrice)
+	log.Printf("number of good seats: %d", nGoodSeats)
+}
+
+func traverse(wholeMaze lib.Maze) (lib.Cost, int) {
+	var prevsByEndCursor map[lib.Cursor]map[lib.Cursor][]lib.Cursor
+	var bestPrice lib.Cost
+	for _, dir := range lib.Directions {
+		actualEndCursor := lib.Cursor{Coord: *wholeMaze.End, Dir: dir}
+		revMaze := wholeMaze
+		revMaze.End, revMaze.Start = wholeMaze.Start, wholeMaze.End
+		revMaze.Cursor = actualEndCursor
+		revMaze.EndCursor = lib.Cursor{Coord: *revMaze.End, Dir: lib.StartDirection.Mul(-1)}
+		cost, prevs := doDijkstra(revMaze)
+		if cost == NothingFound {
+			continue
+		}
+		if len(prevsByEndCursor) < 1 || cost < bestPrice {
+			bestPrice = cost
+			prevsByEndCursor = make(map[lib.Cursor]map[lib.Cursor][]lib.Cursor)
+			prevsByEndCursor[revMaze.EndCursor] = prevs
+		}
+	}
+
+	goodSeats := set.New[lib.Coord](0)
+	for cursor, prevs := range prevsByEndCursor {
+		goodSeats.InsertSet(collectGoodSeats(prevs, cursor))
+	}
+
+	return bestPrice, goodSeats.Size()
+}
+
+func doDijkstra(wholeMaze lib.Maze) (lib.Cost, map[lib.Cursor][]lib.Cursor) {
 	bestCostByCursor := make(map[lib.Cursor]lib.Cost)
+	bestCostByCursor[wholeMaze.Cursor] = 0
+	unvisitedQueue := pq.New[lib.Cursor, float64](pq.MinHeap)
+	unvisitedQueue.Put(wholeMaze.Cursor, 0)
+	removed := set.New[lib.Cursor](1)
 
-	bestCost := CutoffReached
-	for cutoff := float64(1); bestCost == CutoffReached; cutoff *= args.CutoffGrowthFactor {
-		log.Printf("attempting traversal with cutoff: %v", cutoff)
-		cost := traverse(*maze, bestCostByCursor, lib.Cost(math.Round(cutoff)))
-		if cost > 0 {
-			bestCost = cost
+	prevs := make(map[lib.Cursor][]lib.Cursor)
+	for !unvisitedQueue.IsEmpty() {
+		item := unvisitedQueue.Get()
+		cursor, priority := item.Value, item.Priority
+		cost := lib.Cost(priority)
+		removed.Insert(cursor)
+		if cursor == wholeMaze.EndCursor {
+			return lib.Cost(priority), prevs
+		}
+
+		for _, move := range lib.Moves {
+			if !move.Precondition(cursor, wholeMaze) {
+				continue
+			}
+
+			nextCursor, costIncr := move.Func(cursor)
+			if removed.Contains(nextCursor) {
+				continue
+			}
+
+			nextCost := cost + costIncr
+			if oldBest, ok := bestCostByCursor[nextCursor]; ok {
+				switch {
+				case nextCost < oldBest:
+					unvisitedQueue.Update(nextCursor, float64(nextCost))
+					prevs[nextCursor] = []lib.Cursor{cursor}
+				case nextCost == oldBest:
+					prevs[nextCursor] = append(prevs[nextCursor], cursor)
+				case nextCost > oldBest:
+					nextCost = oldBest
+				}
+			} else {
+				unvisitedQueue.Put(nextCursor, float64(nextCost))
+				prevs[nextCursor] = []lib.Cursor{cursor}
+			}
+			bestCostByCursor[nextCursor] = nextCost
 		}
 	}
 
-	log.Printf("phase 1 complete; bestCost: %d", bestCost)
-	for _, cursor := range maze.EndCursors {
-		bestCostByCursor[cursor] = bestCost
-	}
-
-	goodSeats := findGoodSeats(*maze, bestCostByCursor)
-	log.Printf("good seats: %d", goodSeats.Size())
+	return NothingFound, nil
 }
 
-func traverse(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost, costCutoff lib.Cost) lib.Cost {
-	if costCutoff > 0 && state.Cost >= costCutoff {
-		return CutoffReached
-	}
-
-	cheapest, ok := bestCostByCursor[state.Cursor]
-	if ok && cheapest < state.Cost {
-		return NothingFound
-	}
-
-	if state.Cursor.Coord == *state.End {
-		successfulEndCursors := lo.Filter(state.EndCursors, func(c lib.Cursor, _ int) bool {
-			_, ok := bestCostByCursor[c]
-			return ok
-		})
-		costs := lo.Map(successfulEndCursors, func(c lib.Cursor, _ int) lib.Cost {
-			return bestCostByCursor[c]
-		})
-
-		cheapest = lo.Min(costs)
-		if state.Cost < cheapest || len(costs) < 1 {
-			cheapest = state.Cost
-			log.Printf("new cheapest threshold: %v", cheapest)
-			bestCostByCursor[state.Cursor] = cheapest
-		}
-
-		return cheapest
-	}
-
-	bestCostByCursor[state.Cursor] = state.Cost
-	costs := make([]lib.Cost, 0, len(lib.Moves))
-	for _, move := range lib.Moves {
-		if !move.Precondition(state) {
-			continue
-		}
-
-		cost := traverse(move.Func(state), bestCostByCursor, costCutoff)
-		costs = append(costs, cost)
-	}
-
-	realCosts := lo.Filter(costs, func(c lib.Cost, _ int) bool {
-		return c > 0
-	})
-	if len(realCosts) == 0 {
-		return lo.Min(costs)
-	}
-
-	return lo.Min(realCosts)
-}
-
-func findGoodSeats(state lib.Maze, bestCostByCursor map[lib.Cursor]lib.Cost) *set.Set[lib.Coord] {
-	cheapest, ok := bestCostByCursor[state.Cursor]
-	if ok && cheapest < state.Cost {
-		return nil
-	}
-
-	if state.Cursor.Coord == *state.End {
-		cheapest = bestCostByCursor[state.Cursor]
-		if state.Cost == cheapest {
-			log.Printf("found a path (cost: %v)", cheapest)
-			bestCostByCursor[state.Cursor] = cheapest
-			goodSeats := set.New[lib.Coord](1)
-			goodSeats.Insert(state.Cursor.Coord)
-			return goodSeats
-		}
-
-		return nil
-	}
-
-	bestCostByCursor[state.Cursor] = state.Cost
-	var goodSeats *set.Set[lib.Coord]
-	for _, move := range lib.Moves {
-		if !move.Precondition(state) {
-			continue
-		}
-
-		moreSeats := findGoodSeats(move.Func(state), bestCostByCursor)
-		if moreSeats == nil {
-			continue
-		}
-
-		if goodSeats == nil {
-			goodSeats = moreSeats
-			continue
-		}
-
-		goodSeats.InsertSet(moreSeats)
-	}
-
-	if goodSeats != nil {
-		goodSeats.Insert(state.Cursor.Coord)
+func collectGoodSeats(prevs map[lib.Cursor][]lib.Cursor, cursor lib.Cursor) *set.Set[lib.Coord] {
+	goodSeats := set.New[lib.Coord](1)
+	goodSeats.Insert(cursor.Coord)
+	for _, prevCursor := range prevs[cursor] {
+		goodSeats.InsertSet(collectGoodSeats(prevs, prevCursor))
 	}
 
 	return goodSeats

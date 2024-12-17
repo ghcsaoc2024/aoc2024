@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/samber/lo"
 )
 
 type Coord struct {
@@ -25,6 +23,13 @@ func (c Coord) Sub(other Coord) Coord {
 	return Coord{
 		Row: c.Row - other.Row,
 		Col: c.Col - other.Col,
+	}
+}
+
+func (c Coord) Mul(scalar int) Coord {
+	return Coord{
+		Row: c.Row * scalar,
+		Col: c.Col * scalar,
 	}
 }
 
@@ -85,7 +90,7 @@ type Maze struct {
 	Dimensions Coord
 	Cost       Cost
 	Solved     bool
-	EndCursors []Cursor
+	EndCursor  Cursor
 }
 
 const (
@@ -93,38 +98,35 @@ const (
 	TurnCost    = 1000
 )
 
-func Forward(m Maze) Maze {
-	m.Cursor.Coord = m.Cursor.Coord.Add(m.Cursor.Dir)
-	m.Cost += ForwardCost
-	return m
+func Forward(cursor Cursor) (Cursor, Cost) {
+	cursor.Coord = cursor.Coord.Add(cursor.Dir)
+	return cursor, ForwardCost
 }
 
-func TurnRight(m Maze) Maze {
-	m.Cursor.Dir = m.Cursor.Dir.TurnRight()
-	m.Cost += TurnCost
-	return m
+func TurnRight(cursor Cursor) (Cursor, Cost) {
+	cursor.Dir = cursor.Dir.TurnRight()
+	return cursor, TurnCost
 }
 
-func TurnLeft(m Maze) Maze {
-	m.Cursor.Dir = m.Cursor.Dir.TurnLeft()
-	m.Cost += TurnCost
-	return m
+func TurnLeft(cursor Cursor) (Cursor, Cost) {
+	cursor.Dir = cursor.Dir.TurnLeft()
+	return cursor, TurnCost
 }
 
-type MoveFunc func(Maze) Maze
+type MoveFunc func(Cursor) (Cursor, Cost)
 
 type Move struct {
-	Precondition func(Maze) bool
+	Precondition func(Cursor, Maze) bool
 	Func         MoveFunc
 	Cost         Cost
 }
 
-func turnPrecondition(_ Maze) bool {
+func turnPrecondition(_ Cursor, _ Maze) bool {
 	return true
 }
 
-func forwardPrecondition(maze Maze) bool {
-	nextCoord := maze.Cursor.Coord.Add(maze.Cursor.Dir)
+func forwardPrecondition(cursor Cursor, maze Maze) bool {
+	nextCoord := cursor.Coord.Add(cursor.Dir)
 	if !nextCoord.IsValid(maze.Dimensions) {
 		return false
 	}
@@ -150,7 +152,7 @@ func ReadInput(scanner *bufio.Scanner) (*Maze, error) {
 			break
 		}
 
-		row := make([]Cell, len(line)*2)
+		row := make([]Cell, len(line))
 		for iCol, char := range line {
 			coord := Coord{Row: len(maze.Board), Col: iCol}
 			switch char {
@@ -185,10 +187,6 @@ func ReadInput(scanner *bufio.Scanner) (*Maze, error) {
 	maze.Cursor = Cursor{*maze.Start, StartDirection}
 	maze.Cost = 0
 	maze.Solved = false
-
-	maze.EndCursors = lo.Map(Directions, func(dir Coord, _ int) Cursor {
-		return Cursor{Coord: *maze.End, Dir: dir}
-	})
 
 	return maze, nil
 }
