@@ -3,28 +3,25 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"main/lib"
 	"math"
 	"os"
-	"reflect"
 
 	"github.com/alexflint/go-arg"
+	"github.com/hashicorp/go-set/v3"
+	"github.com/samber/lo"
 )
 
 type Args struct {
-	InputFile  string `arg:"positional,required"        help:"input file"`
-	MaxTestVal int    `arg:"-m,--max-test-val,required" help:"maximum test value"`
+	InputFile string `arg:"positional,required" help:"input file"`
 }
 
 func main() {
 	var args Args
 	arg.MustParse(&args)
-
-	if args.MaxTestVal < 1 {
-		log.Fatalf("max test val must be at least 1; got %d", args.MaxTestVal)
-	}
 
 	computer, program, err := readInputFile(args)
 	if err != nil {
@@ -34,22 +31,48 @@ func main() {
 	log.Printf("computer: %v", *computer)
 	log.Printf("program: %v", *program)
 
-	for regA := range args.MaxTestVal {
-		isMatch, err := runProgram(*computer, *program)
-		if err != nil {
-			log.Panic(err)
+	solution, err := solve(*computer, *program)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	log.Printf("solution: %v", solution)
+}
+
+func solve(computer lib.Computer, program lib.Program) (lib.Register, error) {
+	progLen := len(program)
+	output := program
+	outputLen := progLen
+
+	valuesToTest := set.New[lib.Register](1)
+	valuesToTest.Insert(0)
+	var previousGeneration *set.Set[lib.Register]
+	for outputIdx := outputLen - 1; outputIdx >= 0; outputIdx-- {
+		if valuesToTest.Empty() {
+			return -1, errors.New("ran out of possible states")
 		}
 
-		if isMatch {
-			log.Printf("regA: %d", regA)
-			return
+		previousGeneration, valuesToTest = valuesToTest, set.New[lib.Register](0)
+		for value := range previousGeneration.Items() {
+			for variation := range 8 {
+				valueToCheck := 8*value + lib.Register(variation)
+				computer.A = valueToCheck
+				newOutput, err := runProgram(computer, output)
+				if err != nil {
+					return -1, err
+				}
+
+				if (*newOutput)[0] == output[outputIdx] {
+					valuesToTest.Insert(valueToCheck)
+				}
+			}
 		}
 	}
 
-	log.Printf("ended after %d iterations with no solution", args.MaxTestVal)
+	return lo.Min(valuesToTest.Slice()), nil
 }
 
-func runProgram(computer lib.Computer, program lib.Program) (bool, error) {
+func runProgram(computer lib.Computer, program lib.Program) (*lib.Program, error) {
 	output := lib.Program{}
 	instructionPointer := 0
 	for instructionPointer < len(program) {
@@ -60,7 +83,7 @@ func runProgram(computer lib.Computer, program lib.Program) (bool, error) {
 			numerator := computer.A
 			cOperand, err := comboOperand(computer, operand)
 			if err != nil {
-				return false, err
+				return nil, err
 			}
 			result := lib.Register(float64(numerator) / math.Pow(2, float64(cOperand)))
 
@@ -77,7 +100,7 @@ func runProgram(computer lib.Computer, program lib.Program) (bool, error) {
 		case lib.OpStore:
 			cOperand, err := comboOperand(computer, operand)
 			if err != nil {
-				return false, err
+				return nil, err
 			}
 			computer.B = cOperand % 8
 		case lib.OpJumpNonZero:
@@ -90,22 +113,14 @@ func runProgram(computer lib.Computer, program lib.Program) (bool, error) {
 		case lib.OpOutput:
 			cOperand, err := comboOperand(computer, operand)
 			if err != nil {
-				return false, err
+				return nil, err
 			}
-			iOutput := len(output)
-			output = append(output, lib.OpVal(cOperand%8)) //nolint:gosec // Overflow intentional
-			if len(output) > len(program) || output[iOutput] != program[iOutput] {
-				return false, nil
-			}
+			output = append(output, lib.OpVal(cOperand%8)) //nolint:gosec // Truncation intentional
 		}
 		instructionPointer += 2
 	}
 
-	if len(output) != len(program) {
-		return false, nil
-	}
-
-	return reflect.DeepEqual(output, program), nil
+	return &output, nil
 }
 
 func comboOperand(computer lib.Computer, operand lib.OpVal) (lib.Register, error) {
