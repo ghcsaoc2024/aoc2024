@@ -21,7 +21,6 @@ type Args struct {
 	StartCol     int    `arg:"-t,--start-col" default:"0" help:"starting col"`
 	EndRow       int    `arg:"-e,--end-row" default:"-1" help:"ending row"`
 	EndCol       int    `arg:"-f,--end-col" default:"-1" help:"ending col"`
-	NumSteps     int    `arg:"-n,--num-steps,required" help:"number of steps to execute before eval"`
 }
 
 func main() {
@@ -47,59 +46,25 @@ func main() {
 		row := make([]bool, args.BoardDimCols)
 		return row
 	}))
-	for step := 1; step <= args.NumSteps; step++ {
+	getBoardState := func(_ int) *lib.Board {
+		return &board
+	}
+
+	step := 0
+	for {
+		step++
 		loc, ok := game.BlockSched[step]
 		if !ok {
 			log.Printf("step %d: no block scheduled", step)
 		}
 		board[loc.Row][loc.Col] = true
+		pathLength, _ := doDijkstra(*game, getBoardState)
+		if pathLength < 0 {
+			log.Printf("step %d: no path found (last block to fall: %v)", step, loc)
+			break
+		}
 	}
-
-	getBoardState := func(_ int) *lib.Board {
-		return &board
-	}
-
-	pathLength, _ := doDijkstra(*game, getBoardState)
-
-	log.Printf("path length: %d", pathLength)
 }
-
-// func deepcopyBoard(board lib.Board) *lib.Board {
-// 	var copyBoard lib.Board
-// 	for _, row := range board {
-// 		copyBoard = append(copyBoard, row[:]) //nolint:gocritic // This is intentional; we're doing a deepcopy.
-// 	}
-//
-// 	return &copyBoard
-// }
-
-// func traverse(wholeMaze lib.Maze) (int, int) {
-// 	var prevsByEndCoord map[lib.Coord]map[lib.Coord][]lib.Coord
-// 	var bestPrice int
-// 	for _, dir := range lib.Directions {
-// 		actualEndCoord := lib.Coord{Coord: *wholeMaze.End, Dir: dir}
-// 		revMaze := wholeMaze
-// 		revMaze.End, revMaze.Start = wholeMaze.Start, wholeMaze.End
-// 		revMaze.Coord = actualEndCoord
-// 		revMaze.EndCoord = lib.Coord{Coord: *revMaze.End, Dir: lib.StartDirection.Mul(-1)}
-// 		cost, prevs := doDijkstra(revMaze)
-// 		if cost == NothingFound {
-// 			continue
-// 		}
-// 		if len(prevsByEndCoord) < 1 || cost < bestPrice {
-// 			bestPrice = cost
-// 			prevsByEndCoord = make(map[lib.Coord]map[lib.Coord][]lib.Coord)
-// 			prevsByEndCoord[revMaze.EndCoord] = prevs
-// 		}
-// 	}
-//
-// 	goodSeats := set.New[lib.Coord](0)
-// 	for cursor, prevs := range prevsByEndCoord {
-// 		goodSeats.InsertSet(collectGoodSeats(prevs, cursor))
-// 	}
-//
-// 	return bestPrice, goodSeats.Size()
-// }
 
 func doDijkstra(game lib.Game, getBoardState func(int) *lib.Board) (int, map[lib.Coord][]lib.Coord) {
 	bestCostByCoord := make(map[lib.Coord]int)
@@ -154,16 +119,6 @@ func doDijkstra(game lib.Game, getBoardState func(int) *lib.Board) (int, map[lib
 
 	return -1, nil
 }
-
-// func collectGoodSeats(prevs map[lib.Coord][]lib.Coord, cursor lib.Coord) *set.Set[lib.Coord] {
-// 	goodSeats := set.New[lib.Coord](1)
-// 	goodSeats.Insert(cursor.Coord)
-// 	for _, prevCoord := range prevs[cursor] {
-// 		goodSeats.InsertSet(collectGoodSeats(prevs, prevCoord))
-// 	}
-//
-// 	return goodSeats
-// }
 
 func readInputFile(args Args) (*lib.Game, error) {
 	file, err := os.Open(args.InputFile)
