@@ -100,6 +100,10 @@ func solve(inventory []string, solutionsCache map[string]bool, pattern string) (
 		}
 	}
 
+	if solutionsCache != nil {
+		solutionsCache[pattern] = false
+	}
+
 	return false, nil
 }
 
