@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/alexflint/go-arg"
+	"github.com/samber/lo"
 )
 
 type Args struct {
@@ -23,84 +24,85 @@ func main() {
 		log.Panic(err)
 	}
 
-	newInventory, err := pruneInventory(inventory)
-	if err != nil {
-		log.Panic(err)
-	}
+	newInventory := pruneInventory(inventory)
 
 	log.Printf("pruned inventory from %d to %d", len(inventory), len(newInventory))
+	pruneventory, _ := lo.Difference(inventory, newInventory)
 	inventory = newInventory
 
-	solutionsCache := make(map[string]bool)
-	nSolvable := 0
+	solutionsCache := make(map[string]int64)
+	nTotalSolutions := int64(0)
 	for iPattern, pattern := range patterns {
-		solvable, err := solve(inventory, solutionsCache, pattern)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		if solvable {
-			nSolvable++
-			log.Printf("pattern %d: solvable", iPattern)
-		} else {
-			log.Printf("pattern %d: not solvable", iPattern)
-		}
+		nSolutions := solve(inventory, pruneventory, solutionsCache, pattern)
+		log.Printf("pattern %d: %d solutions", iPattern, nSolutions)
+		nTotalSolutions += nSolutions
 	}
 
-	log.Printf("number of solvable patterns: %d", nSolvable)
+	log.Printf("number of total solutions: %d", nTotalSolutions)
 }
 
-func pruneInventory(inventory []string) ([]string, error) {
+func pruneInventory(inventory []string) []string {
 	remainingInventory := make([]string, len(inventory)-1)
 	for iTowel, towel := range inventory {
 		copy(remainingInventory[:iTowel], inventory[:iTowel])
 		copy(remainingInventory[iTowel:], inventory[iTowel+1:])
-		solvable, err := solve(remainingInventory, nil, towel)
-		if err != nil {
-			return nil, err
-		}
-
-		if solvable {
+		nSolutions := solve(remainingInventory, nil, nil, towel)
+		if nSolutions > 0 {
 			log.Printf("pruning %s", towel)
 			return pruneInventory(remainingInventory)
 		}
 	}
 
-	return inventory, nil
+	return inventory
 }
 
-func solve(inventory []string, solutionsCache map[string]bool, pattern string) (bool, error) {
+func solve(inventory, pruneventory []string, solutionsCache map[string]int64, pattern string) int64 {
 	if len(pattern) < 1 {
-		return true, nil
+		return 1
 	}
 
 	if solutionsCache != nil {
-		if solvable, ok := solutionsCache[pattern]; ok {
-			return solvable, nil
+		if nTotalSolutions, ok := solutionsCache[pattern]; ok {
+			return nTotalSolutions
 		}
 	}
 
+	nTotalSolutions := int64(0)
 	for _, towel := range inventory {
 		if !strings.HasPrefix(pattern, towel) {
 			continue
 		}
 
 		remainder := pattern[len(towel):]
-		remainderSolvable, err := solve(inventory, solutionsCache, remainder)
-		if err != nil {
-			return false, err
-		}
+		nRemainderSolutions := solve(inventory, pruneventory, solutionsCache, remainder)
 
-		if remainderSolvable {
+		if nRemainderSolutions >= 0 {
 			if solutionsCache != nil {
-				solutionsCache[remainder] = true
+				solutionsCache[remainder] = nRemainderSolutions
 			}
-
-			return true, nil
+			nTotalSolutions += nRemainderSolutions
 		}
 	}
 
-	return false, nil
+	if pruneventory == nil {
+		return nTotalSolutions
+	}
+
+	for _, towel := range pruneventory {
+		if !strings.HasPrefix(pattern, towel) {
+			continue
+		}
+
+		remainder := pattern[len(towel):]
+		nRemainderSolutions, ok := solutionsCache[remainder]
+		if !ok {
+			log.Panic("internal error: no solution for pruned towel") //nolint:revive // Toy code
+		}
+
+		nTotalSolutions += nRemainderSolutions
+	}
+
+	return nTotalSolutions
 }
 
 func readInputFile(args Args) ([]string, []string, error) {
