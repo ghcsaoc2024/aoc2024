@@ -77,7 +77,7 @@ func collectPaths(maze lib.Maze, state lib.State, prevs map[lib.State][]lib.Stat
 
 	nPaths := 0
 	var cheatList []lib.Coord
-	isCheat := (maze.Board[state.Pos.Row][state.Pos.Col] == lib.Wall)
+	isCheat := maze.Board[state.Pos.Row][state.Pos.Col] == lib.Wall
 	cheatList = make([]lib.Coord, 0)
 	if isCheat {
 		cheatList = append(cheatList, state.Pos)
