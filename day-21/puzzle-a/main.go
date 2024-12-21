@@ -42,17 +42,12 @@ type AllMaps struct {
 }
 
 type State struct {
-	// actionPad1      string
-	// actionPad2Coord lib.Coord
-	actionPad2      string
-	actionPad3Coord lib.Coord
-	actionPad3      string
-	numPadCoord     lib.Coord
-	numPad          string
+	CurrentStr string
+	NextCoord  lib.Coord
+	NextStr    string
 }
 
 var errOutOfBounds = errors.New("out-of-bounds")
-var errSolutionNotFound = errors.New("solution not found")
 
 func main() {
 	var args Args
@@ -80,14 +75,11 @@ func main() {
 	}
 	log.Printf("action sequence: %s", result)
 
-	resultInts := lo.Map([]rune(result), func(r rune, _ int) int {
-		return lib.NumPadKeyByRune[r]
-	})
-	solution, err := doDijkstra(resultInts, allMaps)
+	solutions, err := doDijkstra(result, allMaps.NumPad.RunesByNumPadKey, allMaps.NumPad.Layout, allMaps.NumPad.RevLayout[lib.NumPadKeyA])
 	if err != nil {
 		log.Panic(err)
 	}
-	log.Printf("solution: %s", solution)
+	log.Printf("solution: %v", solutions)
 }
 
 func execUberSequence(s string, allMaps AllMaps) (string, error) {
@@ -118,92 +110,56 @@ func execUberSequence(s string, allMaps AllMaps) (string, error) {
 	})), nil
 }
 
-func doDijkstra(numPadKeyPresses []int, allMaps AllMaps) (string, error) {
-	numPadString := string(lo.Map(numPadKeyPresses, func(key int, _ int) rune {
-		return allMaps.NumPad.RunesByNumPadKey[key]
-	}))
+func doDijkstra(targetString string, runesByKey map[int]rune, nextLayout map[lib.Coord]int, initialCoord lib.Coord) ([]string, error) {
 	initState := State{
-		// actionPad2Coord: allMaps.ActionPad.RevLayout[lib.Press],
-		// actionPad3Coord: allMaps.ActionPad.RevLayout[lib.Press],
-		numPadCoord: allMaps.NumPad.RevLayout[lib.NumPadKeyA],
+		NextCoord: initialCoord,
 	}
 	bestCostByState := make(map[State]int)
 	unvisitedQueue := pq.New[State, float64](pq.MinHeap)
 	unvisitedQueue.Put(initState, 0)
 	removed := set.New[State](0)
+	results := make([]string, 0)
 	for !unvisitedQueue.IsEmpty() {
 		item := unvisitedQueue.Get()
-		state, priority := item.Value, item.Priority
-		cost := int(priority)
+		state, _ := item.Value, item.Priority
 
 		removed.Insert(state)
-		if state.numPad == numPadString {
-			return state.actionPad3, nil
+		if state.NextStr == targetString {
+			results = append(results, state.CurrentStr)
+			continue
 		}
 
 		for nextRune := range lib.ActionByRune {
 			newState := state
-			newCost := cost
 			var action int
 			var err error
-			// action, err = processAction(
-			// 	nextRune,
-			// 	&newState.actionPad1,
-			// 	&newState.actionPad2Coord,
-			// 	allMaps.ActionPad.Layout,
-			// )
-			// if errors.Is(err, errOutOfBounds) {
-			// 	continue
-			// } else if err != nil {
-			// 	return "", err
-			// }
-			//
-			// if action != lib.InvalidAction {
-			// 	nextRune = allMaps.ActionPad.RunesByAction[action]
-			// action, err = processAction(
-			// 	nextRune,
-			// 	&newState.actionPad2,
-			// 	&newState.actionPad3Coord,
-			// 	allMaps.ActionPad.Layout,
-			// )
-			// if errors.Is(err, errOutOfBounds) {
-			// 	continue
-			// } else if err != nil {
-			// 	return "", err
-			// }
-			// }
-			//
-			// if action != lib.InvalidAction {
-			// nextRune = allMaps.ActionPad.RunesByAction[action]
 			action, err = processAction(
 				nextRune,
-				&newState.actionPad3,
-				&newState.numPadCoord,
-				allMaps.NumPad.Layout,
+				&newState.CurrentStr,
+				&newState.NextCoord,
+				nextLayout,
 			)
 			if errors.Is(err, errOutOfBounds) {
 				continue
 			} else if err != nil {
-				return "", err
+				return nil, err
 			}
 			// }
 
 			if action != lib.InvalidNumPadKey {
-				nextRune = allMaps.NumPad.RunesByNumPadKey[action]
-				newState.numPad += string(nextRune)
-				// newCost = len(newState.actionPad1)
-				// newCost = len(newState.actionPad2)
+				nextRune = runesByKey[action]
+				newState.NextStr += string(nextRune)
 			}
 
-			if !strings.HasPrefix(numPadString, newState.numPad) {
+			if !strings.HasPrefix(targetString, newState.NextStr) {
 				continue
 			}
 
-			newCost = len(newState.actionPad3)
+			newCost := len(newState.CurrentStr)
 			stateKey := State{
-				actionPad3:  "",
-				numPadCoord: newState.numPadCoord,
-				numPad:      newState.numPad,
+				CurrentStr: "",
+				NextCoord:  newState.NextCoord,
+				NextStr:    newState.NextStr,
 			}
 			if oldBest, ok := bestCostByState[stateKey]; ok {
 				switch {
@@ -211,6 +167,8 @@ func doDijkstra(numPadKeyPresses []int, allMaps AllMaps) (string, error) {
 					unvisitedQueue.Update(newState, float64(newCost))
 				case newCost > oldBest:
 					newCost = oldBest
+				default:
+					unvisitedQueue.Put(newState, float64(newCost))
 				}
 			} else {
 				unvisitedQueue.Put(newState, float64(newCost))
@@ -219,7 +177,7 @@ func doDijkstra(numPadKeyPresses []int, allMaps AllMaps) (string, error) {
 		}
 	}
 
-	return "", errSolutionNotFound
+	return results, nil
 }
 
 func processAction(r rune, currentStr *string, nextCoords *lib.Coord, nextLayout map[lib.Coord]int) (int, error) {
