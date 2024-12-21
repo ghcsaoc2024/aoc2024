@@ -9,10 +9,8 @@ import (
 	"github.com/samber/lo"
 )
 
-type NumPadKey int
-
 const (
-	InvalidNumPadKey NumPadKey = iota
+	InvalidNumPadKey int = iota
 	NumPadKey1
 	NumPadKey2
 	NumPadKey3
@@ -26,7 +24,7 @@ const (
 	NumPadKeyA
 )
 
-var numPadKeyByRune = map[rune]NumPadKey{ //nolint:gochecknoglobals // Meant as a constant
+var NumPadKeyByRune = map[rune]int{ //nolint:gochecknoglobals // Meant as a constant
 	'1': NumPadKey1,
 	'2': NumPadKey2,
 	'3': NumPadKey3,
@@ -45,6 +43,8 @@ type Coord struct {
 	Col int
 }
 
+var InvalidCoord = Coord{Row: -1, Col: -1} //nolint:gochecknoglobals // Meant as a constant
+
 func (c Coord) Add(other Coord) Coord {
 	return Coord{
 		Row: c.Row + other.Row,
@@ -52,10 +52,8 @@ func (c Coord) Add(other Coord) Coord {
 	}
 }
 
-type Action int
-
 const (
-	InvalidAction Action = iota
+	InvalidAction int = iota
 	MoveUp
 	MoveDown
 	MoveLeft
@@ -63,7 +61,7 @@ const (
 	Press
 )
 
-var Actions = map[Action]Coord{ //nolint:gochecknoglobals // Meant as a constant
+var Actions = map[int]Coord{ //nolint:gochecknoglobals // Meant as a constant
 	MoveUp:    {Row: -1, Col: 0},
 	MoveDown:  {Row: 1, Col: 0},
 	MoveLeft:  {Row: 0, Col: -1},
@@ -71,14 +69,14 @@ var Actions = map[Action]Coord{ //nolint:gochecknoglobals // Meant as a constant
 	Press:     {Row: 0, Col: 0},
 }
 
-var NumPadLayout = [][]NumPadKey{ //nolint:gochecknoglobals // Meant as a constant
+var NumPadLayout = [][]int{ //nolint:gochecknoglobals // Meant as a constant
 	{NumPadKey7, NumPadKey8, NumPadKey9},
 	{NumPadKey4, NumPadKey5, NumPadKey6},
 	{NumPadKey1, NumPadKey2, NumPadKey3},
 	{InvalidNumPadKey, NumPadKey0, NumPadKeyA},
 }
 
-var ActionByRune = map[rune]Action{ //nolint:gochecknoglobals // Meant as a constant
+var ActionByRune = map[rune]int{ //nolint:gochecknoglobals // Meant as a constant
 	'^': MoveUp,
 	'v': MoveDown,
 	'<': MoveLeft,
@@ -86,12 +84,12 @@ var ActionByRune = map[rune]Action{ //nolint:gochecknoglobals // Meant as a cons
 	'A': Press,
 }
 
-var ActionPadLayout = [][]Action{ //nolint:gochecknoglobals // Meant as a constant
+var ActionPadLayout = [][]int{ //nolint:gochecknoglobals // Meant as a constant
 	{InvalidAction, MoveUp, Press},
 	{MoveLeft, MoveDown, MoveRight},
 }
 
-type NumPadCode []NumPadKey
+type NumPadCode []int
 
 func ReadInput(scanner *bufio.Scanner) ([]NumPadCode, error) {
 	pattern := `[0-9]+A`
@@ -111,8 +109,8 @@ func ReadInput(scanner *bufio.Scanner) ([]NumPadCode, error) {
 			continue
 		}
 
-		numPadCode := lo.Map([]rune(match), func(item rune, _ int) NumPadKey {
-			return lo.ValueOr(numPadKeyByRune, item, InvalidNumPadKey)
+		numPadCode := lo.Map([]rune(match), func(item rune, _ int) int {
+			return lo.ValueOr(NumPadKeyByRune, item, InvalidNumPadKey)
 		})
 
 		if lo.Contains(numPadCode, InvalidNumPadKey) {
