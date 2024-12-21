@@ -43,8 +43,6 @@ type Coord struct {
 	Col int
 }
 
-var InvalidCoord = Coord{Row: -1, Col: -1} //nolint:gochecknoglobals // Meant as a constant
-
 func (c Coord) Add(other Coord) Coord {
 	return Coord{
 		Row: c.Row + other.Row,

@@ -7,6 +7,8 @@ import (
 	"log"
 	"main/lib"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/alexflint/go-arg"
@@ -67,26 +69,104 @@ func main() {
 	log.Printf("action pad layout map: %v", allMaps.ActionPad.Layout)
 	log.Printf("action rev layout map: %v", allMaps.ActionPad.RevLayout)
 
-	testStr := "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A"
-	log.Printf("test string: %s", testStr)
-	result, err := execUberSequence(testStr, allMaps)
-	if err != nil {
-		log.Panic(err)
+	total := int64(0)
+	for _, numPadCode := range numPadCodes {
+		numPadString := string(lo.Map(numPadCode, func(key, _ int) rune {
+			return allMaps.NumPad.RunesByNumPadKey[key]
+		}))
+		value, err := solve(numPadString, allMaps)
+		if err != nil {
+			log.Panic(err)
+		}
+		log.Printf("num pad string: %s", numPadString)
+		log.Printf("value: %d", value)
+		total += value
 	}
-	log.Printf("action sequence: %s", result)
 
-	solutions, err := doDijkstra(result, allMaps.NumPad.RunesByNumPadKey, allMaps.NumPad.Layout, allMaps.NumPad.RevLayout[lib.NumPadKeyA])
+	log.Printf("total: %d", total)
+}
+
+func solve(target string, allMaps AllMaps) (int64, error) {
+	solutions3, err := doDijkstra(target, allMaps.NumPad.RunesByNumPadKey, allMaps.NumPad.Layout, allMaps.NumPad.RevLayout[lib.NumPadKeyA])
 	if err != nil {
-		log.Panic(err)
+		return -1, err
 	}
-	log.Printf("solution: %v", solutions)
+	log.Printf("number of solutions3: %d", len(solutions3))
+
+	var solutions2 []string
+	for _, solution3 := range solutions3 {
+		subSolutions2, err := doDijkstra(solution3, allMaps.ActionPad.RunesByAction, allMaps.ActionPad.Layout, allMaps.ActionPad.RevLayout[lib.Press])
+		if err != nil {
+			return -1, err
+		}
+		// log.Printf("subSolutions2: %v", subSolutions2)
+		solutions2 = append(solutions2, subSolutions2...)
+	}
+	log.Printf("number of solutions2: %d", len(solutions2))
+
+	minLength2 := lo.Min(lo.Map(solutions2, func(s string, _ int) int {
+		return len(s)
+	}))
+	filteredSolutions2 := lo.Filter(solutions2, func(s string, _ int) bool {
+		return len(s) == minLength2
+	})
+	log.Printf("number of solutions2 after filtering: %d", len(filteredSolutions2))
+
+	var solutions1 []string
+	for _, solution2 := range filteredSolutions2 {
+		subSolutions1, err := doDijkstra(solution2, allMaps.ActionPad.RunesByAction, allMaps.ActionPad.Layout, allMaps.ActionPad.RevLayout[lib.Press])
+		if err != nil {
+			return -1, err
+		}
+		// log.Printf("subSolutions1: %v", subSolutions1)
+		solutions1 = append(solutions1, subSolutions1...)
+	}
+	log.Printf("number of solutions1: %d", len(solutions1))
+
+	minLength1 := lo.Min(lo.Map(solutions1, func(s string, _ int) int {
+		return len(s)
+	}))
+	filteredSolutions1 := lo.Filter(solutions1, func(s string, _ int) bool {
+		return len(s) == minLength1
+	})
+	log.Printf("number of solutions1 after filtering: %d", len(filteredSolutions1))
+
+	for _, solution1 := range filteredSolutions1 {
+		numPadString, err := execUberSequence(solution1, allMaps)
+		if err != nil {
+			return -1, err
+		}
+		if numPadString != target {
+			return -1, fmt.Errorf("internal error: num pad string does not match target: `%s` != `%s`", numPadString, target)
+		}
+	}
+	log.Printf("verified %d solutions", len(filteredSolutions1))
+
+	log.Printf("minLength1: %d", minLength1)
+
+	pattern := `^0*([1-9][0-9]*)A$`
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return -1, fmt.Errorf("internal error: failed to compile regex: %w", err)
+	}
+
+	match := re.FindStringSubmatch(target)
+	if len(match) != 2 {
+		return -1, fmt.Errorf("internal error: failed to find match in target string: %s", target)
+	}
+
+	value, err := strconv.ParseInt(match[1], 10, 64)
+	if err != nil {
+		return -1, fmt.Errorf("internal error: failed to parse match: %w", err)
+	}
+
+	return value * int64(minLength1), nil
 }
 
 func execUberSequence(s string, allMaps AllMaps) (string, error) {
 	actionSeq := lo.Map([]rune(s), func(r rune, _ int) int {
 		return lo.ValueOr(lib.ActionByRune, r, lib.InvalidAction)
 	})
-	log.Printf("action sequence: %v", actionSeq)
 
 	actionSeq2, err := execSeqOnActionPad(actionSeq, allMaps.ActionPad)
 	if err != nil {
@@ -102,8 +182,6 @@ func execUberSequence(s string, allMaps AllMaps) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	log.Printf("key presses: %v", keyPresses)
 
 	return string(lo.Map(keyPresses, func(key, _ int) rune {
 		return allMaps.NumPad.RunesByNumPadKey[key]
