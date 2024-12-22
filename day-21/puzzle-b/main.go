@@ -71,11 +71,31 @@ func main() {
 	log.Printf("action rev layout map: %v", allMaps.ActionPad.RevLayout)
 
 	total := int64(0)
+	solutionsCache := make(map[string][]string)
+
+	for r := range lib.NumPadKeyByRune {
+		solutionLength, err := solveKeyPad(string([]rune{r}), solutionsCache, allMaps, 2)
+		if err != nil {
+			log.Panic(err)
+		}
+		log.Printf("num pad string: %s", string([]rune{r}))
+		log.Printf("solutionLength: %d", solutionLength)
+	}
+
+	for r := range lib.NumPadKeyByRune {
+		solutionLength, err := solveKeyPad(string([]rune{r}), solutionsCache, allMaps, 3)
+		if err != nil {
+			log.Panic(err)
+		}
+		log.Printf("num pad string: %s", string([]rune{r}))
+		log.Printf("solutionLength: %d", solutionLength)
+	}
+
 	for _, numPadCode := range numPadCodes {
 		numPadString := string(lo.Map(numPadCode, func(key, _ int) rune {
 			return allMaps.NumPad.RunesByNumPadKey[key]
 		}))
-		value, err := solve(numPadString, allMaps, args.NumIntermediateKeypads)
+		value, err := solveAndMultiply(numPadString, solutionsCache, allMaps, args.NumIntermediateKeypads)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -87,55 +107,10 @@ func main() {
 	log.Printf("total: %d", total)
 }
 
-func solve(target string, allMaps AllMaps, numIntermediateKeypads int) (int64, error) {
-	solutionsKeypad, err := doDijkstra(target, allMaps.NumPad.RunesByNumPadKey, allMaps.NumPad.Layout, allMaps.NumPad.RevLayout[lib.NumPadKeyA])
+func solveAndMultiply(target string, solutionsCache map[string][]string, allMaps AllMaps, numIntermediateKeypads int) (int64, error) {
+	solutionLength, err := solveKeyPad(target, solutionsCache, allMaps, numIntermediateKeypads)
 	if err != nil {
 		return -1, err
-	}
-	log.Printf("number of solutionsKeypad: %d", len(solutionsKeypad))
-
-	var solutionsAction []string
-	for _, solutionKeypad := range solutionsKeypad {
-		subSolutionsAction, err := doDijkstra(solutionKeypad, allMaps.ActionPad.RunesByAction, allMaps.ActionPad.Layout, allMaps.ActionPad.RevLayout[lib.Press])
-		if err != nil {
-			return -1, err
-		}
-		// log.Printf("subSolutionsAction: %v", subSolutionsAction)
-		solutionsAction = append(solutionsAction, subSolutionsAction...)
-	}
-	log.Printf("number of solutionsAction: %d", len(solutionsAction))
-
-	minLengthAction := lo.Min(lo.Map(solutionsAction, func(s string, _ int) int {
-		return len(s)
-	}))
-	filteredSolutionsAction := lo.Filter(solutionsAction, func(s string, _ int) bool {
-		return len(s) == minLengthAction
-	})
-	log.Printf("number of solutionsAction after filtering: %d", len(filteredSolutionsAction))
-
-	minLengthPrev := minLengthAction
-	filteredSolutionsPrev := filteredSolutionsAction
-	for iKeypad := numIntermediateKeypads - 1; iKeypad > 0; iKeypad-- {
-		var solutionsNext []string
-		for _, solutionPrev := range filteredSolutionsPrev {
-			subSolutionsNew, err := doDijkstra(solutionPrev, allMaps.ActionPad.RunesByAction, allMaps.ActionPad.Layout, allMaps.ActionPad.RevLayout[lib.Press])
-			if err != nil {
-				return -1, err
-			}
-			// log.Printf("subSolutionsNew: %v", subSolutionsNew)
-			solutionsNext = append(solutionsNext, subSolutionsNew...)
-		}
-		log.Printf("round [%d]: number of solutionsNext: %d", iKeypad, len(solutionsNext))
-
-		minLengthNext := lo.Min(lo.Map(solutionsNext, func(s string, _ int) int {
-			return len(s)
-		}))
-		filteredSolutionsNext := lo.Filter(solutionsNext, func(s string, _ int) bool {
-			return len(s) == minLengthNext
-		})
-		log.Printf("round [%d]: number of solutionsNext after filtering: %d", iKeypad, len(filteredSolutionsNext))
-		minLengthPrev = minLengthNext
-		filteredSolutionsPrev = filteredSolutionsNext
 	}
 
 	pattern := `^0*([1-9][0-9]*)A$`
@@ -154,32 +129,133 @@ func solve(target string, allMaps AllMaps, numIntermediateKeypads int) (int64, e
 		return -1, fmt.Errorf("internal error: failed to parse match: %w", err)
 	}
 
-	return value * int64(minLengthPrev), nil
+	return value * int64(solutionLength), nil
 }
 
-func execUberSequence(s string, allMaps AllMaps) (string, error) {
-	actionSeq := lo.Map([]rune(s), func(r rune, _ int) int {
-		return lo.ValueOr(lib.ActionByRune, r, lib.InvalidAction)
+func solveKeyPad(target string, solutionsCache map[string][]string, allMaps AllMaps, numIntermediateKeypads int) (int, error) {
+	solutionsKeypad, err := doDijkstra(target, allMaps.NumPad.RunesByNumPadKey, allMaps.NumPad.Layout, allMaps.NumPad.RevLayout[lib.NumPadKeyA])
+	if err != nil {
+		return -1, err
+	}
+	log.Printf("number of solutionsKeypad: %d", len(solutionsKeypad))
+
+	solutionLength, err := solveActionPad(solutionsCache, allMaps, numIntermediateKeypads, solutionsKeypad)
+	if err != nil {
+		return -1, err
+	}
+	return solutionLength, nil
+}
+
+func solveActionPad(solutionsCache map[string][]string, allMaps AllMaps, numIntermediateKeypads int, solutionsKeypad []string) (int, error) {
+	minLengthKeypad := lo.Min(lo.Map(solutionsKeypad, func(s string, _ int) int {
+		return len(s)
+	}))
+	filteredSolutionsKeypad := lo.Filter(solutionsKeypad, func(s string, _ int) bool {
+		return len(s) == minLengthKeypad
 	})
+	log.Printf("number of solutionsAction after filtering: %d", len(filteredSolutionsKeypad))
 
-	actionSeq2, err := execSeqOnActionPad(actionSeq, allMaps.ActionPad)
-	if err != nil {
-		return "", err
+	minLengthPrev := minLengthKeypad
+	filteredSolutionsPrev := filteredSolutionsKeypad
+	sizeOfCache := len(solutionsCache)
+	for iKeyPad := numIntermediateKeypads; iKeyPad > 0; iKeyPad-- {
+		solutionsNext := set.New[string](0)
+		for _, solutionPrev := range filteredSolutionsPrev {
+			subSolutionsNext, err := doActionDijkstra(solutionPrev, solutionsCache, allMaps.ActionPad.RunesByAction, allMaps.ActionPad.Layout, allMaps.ActionPad.RevLayout[lib.Press])
+			if err != nil {
+				return -1, err
+			}
+
+			subSolutionsNextWithCache := set.New[string](len(subSolutionsNext))
+			subSolutionsNextWithCache.InsertSlice(subSolutionsNext)
+			subSolutionsNextWithCache.InsertSlice(lo.ValueOr(solutionsCache, solutionPrev, []string{}))
+			subSolutionsNextWithCacheSlice := subSolutionsNextWithCache.Slice()
+			minLengthNext := lo.Min(lo.Map(subSolutionsNextWithCacheSlice, func(s string, _ int) int {
+				return len(s)
+			}))
+			filteredSubSolutionsNext := lo.Filter(subSolutionsNextWithCacheSlice, func(s string, _ int) bool {
+				return len(s) == minLengthNext
+			})
+
+			solutionsCache[solutionPrev] = filteredSubSolutionsNext
+			newSizeOfCache := len(solutionsCache)
+			if newSizeOfCache > sizeOfCache {
+				sizeOfCache = newSizeOfCache
+				log.Printf("round [%d]: size of solutionsCache: %d", iKeyPad, sizeOfCache)
+			}
+			solutionsNext.InsertSlice(filteredSubSolutionsNext)
+		}
+		log.Printf("round [%d]: number of solutionsNext: %d", iKeyPad, solutionsNext.Size())
+
+		solutionsNextSlice := solutionsNext.Slice()
+		minLengthNext := lo.Min(lo.Map(solutionsNextSlice, func(s string, _ int) int {
+			return len(s)
+		}))
+		filteredSolutionsNext := lo.Filter(solutionsNextSlice, func(s string, _ int) bool {
+			return len(s) == minLengthNext
+		})
+		log.Printf("round [%d]: number of solutionsNext after filtering: %d", iKeyPad, len(filteredSolutionsNext))
+
+		minLengthPrev = minLengthNext
+		filteredSolutionsPrev = filteredSolutionsNext
 	}
 
-	actionSeq3, err := execSeqOnActionPad(actionSeq2, allMaps.ActionPad)
-	if err != nil {
-		return "", err
+	return minLengthPrev, nil
+}
+
+func doActionDijkstra(targetString string, solutionsCache map[string][]string, runesByKey map[int]rune, nextLayout map[lib.Coord]int, initialCoord lib.Coord) ([]string, error) {
+	// origTargetString := targetString
+	var preSolutions [][]string
+	prefixFound := true
+	for prefixFound && len(targetString) > 0 {
+		prefixFound = false
+		for prefix, solutions := range solutionsCache {
+			if strings.HasPrefix(targetString, prefix) {
+				preSolutions = append(preSolutions, solutions)
+				targetString = targetString[len(prefix):]
+				prefixFound = true
+			}
+		}
 	}
 
-	keyPresses, err := execSeqOnNumPad(actionSeq3, allMaps.NumPad)
-	if err != nil {
-		return "", err
+	allSolutions := preSolutions
+	if len(targetString) > 0 {
+		solutions, err := doDijkstra(targetString, runesByKey, nextLayout, initialCoord)
+		if err != nil {
+			return nil, err
+		}
+
+		allSolutions = append(allSolutions, solutions)
 	}
 
-	return string(lo.Map(keyPresses, func(key, _ int) rune {
-		return allMaps.NumPad.RunesByNumPadKey[key]
-	})), nil
+	product := lo.Reduce(allSolutions, func(agg []string, item []string, _ int) []string {
+		return cartesianConcat(agg, item)
+	}, []string{""})
+
+	// if len(allSolutions) > 1 {
+	// 	solutions, err := doDijkstra(origTargetString, runesByKey, nextLayout, initialCoord)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	//
+	// 	slices.Sort(product)
+	// 	slices.Sort(solutions)
+	// 	if !reflect.DeepEqual(solutions, product) {
+	// 		return nil, fmt.Errorf("internal error: answers are not equal: %v != %v", solutions, product)
+	// 	}
+	// }
+
+	return product, nil
+}
+
+func cartesianConcat(slice1, slice2 []string) []string {
+	var result []string
+	for _, s1 := range slice1 {
+		for _, s2 := range slice2 {
+			result = append(result, s1+s2)
+		}
+	}
+	return result
 }
 
 func doDijkstra(targetString string, runesByKey map[int]rune, nextLayout map[lib.Coord]int, initialCoord lib.Coord) ([]string, error) {
@@ -266,50 +342,6 @@ func processAction(r rune, currentStr *string, nextCoords *lib.Coord, nextLayout
 		}
 		return lib.InvalidAction, nil
 	}
-}
-
-func execSeqOnNumPad(actions []int, numPadMaps NumPadMaps) ([]int, error) {
-	coord := numPadMaps.RevLayout[lib.NumPadKeyA]
-	keyPresses := make([]int, 0)
-	for _, action := range actions {
-		switch action {
-		case lib.InvalidAction:
-			return nil, errors.New("encountered invalid action while executing numpad sequence")
-		case lib.Press:
-			keyPresses = append(keyPresses, numPadMaps.Layout[coord])
-		default:
-			dir := lib.Actions[action]
-			nextCoord := coord.Add(dir)
-			if !lo.HasKey(numPadMaps.Layout, nextCoord) {
-				return nil, fmt.Errorf("out-of-bounds while executing numpad sequence: %v", nextCoord)
-			}
-			coord = nextCoord
-		}
-	}
-
-	return keyPresses, nil
-}
-
-func execSeqOnActionPad(actions []int, actionPadMaps ActionPadMaps) ([]int, error) {
-	coord := actionPadMaps.RevLayout[lib.Press]
-	keyPresses := make([]int, 0)
-	for _, action := range actions {
-		switch action {
-		case lib.InvalidAction:
-			return nil, errors.New("encountered invalid action while executing actionpad sequence")
-		case lib.Press:
-			keyPresses = append(keyPresses, actionPadMaps.Layout[coord])
-		default:
-			dir := lib.Actions[action]
-			nextCoord := coord.Add(dir)
-			if !lo.HasKey(actionPadMaps.Layout, nextCoord) {
-				return nil, fmt.Errorf("out-of-bounds while executing actionpad sequence: %v", nextCoord)
-			}
-			coord = nextCoord
-		}
-	}
-
-	return keyPresses, nil
 }
 
 func makeActionPadMaps() ActionPadMaps {
