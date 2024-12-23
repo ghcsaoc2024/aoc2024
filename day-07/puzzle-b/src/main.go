@@ -1,3 +1,6 @@
+// This is the one from Advent of Code 2024 with the simple demonstration
+// of implementing a WorkerPool pattern in Go.
+
 package main
 
 import (
@@ -30,15 +33,6 @@ type WorkerTask struct {
 	result    big.Int
 	operands  []big.Int
 	sweetSpot float64
-}
-
-func worker(taskChan <-chan WorkerTask, resultsChan chan<- big.Int, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for task := range taskChan {
-		if isSolvable(task.result, task.operands, task.sweetSpot) {
-			resultsChan <- task.result
-		}
-	}
 }
 
 type Args struct {
@@ -130,6 +124,13 @@ func main() {
 	go func() {
 		wg.Wait()
 		close(resultsChan)
+		// Contrary to appearances, this is in fact hermetically sealed:
+		// because resultsChan has no buffer, and individual workers don't call
+		// `wg.Done()` until *after* their call to `resultsChan <- task.result`
+		// (which will block unless and until something reads the `task.result`
+		// from the channel), it follows that there is no way `resultsChan` will
+		// be closed by this deferred func *before* the result has the chance to
+		// have been read by the loop below.
 	}()
 
 	for result := range resultsChan {
@@ -139,6 +140,15 @@ func main() {
 	maxAttainableStr := maxAttainable.String()
 	log.Printf("max attainable:  %s", maxAttainableStr)
 	log.Printf("running total:   %*v", len(maxAttainableStr), runningTotal)
+}
+
+func worker(taskChan <-chan WorkerTask, resultsChan chan<- big.Int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for task := range taskChan {
+		if isSolvable(task.result, task.operands, task.sweetSpot) {
+			resultsChan <- task.result
+		}
+	}
 }
 
 func isSolvable(desiredResult big.Int, operands []big.Int, sweetSpot float64) bool {
